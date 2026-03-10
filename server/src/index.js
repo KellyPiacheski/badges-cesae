@@ -1,11 +1,13 @@
 // server/src/index.js
 // Entry point do servidor Express — Badges @ CESAE Digital
 
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
 
-const authRoutes = require("./routes/auth");
+const authRoutes = require('./routes/auth');
+const eventRoutes = require('./routes/events');
+const enrollmentRoutes = require('./routes/enrollments');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -15,11 +17,13 @@ app.use(cors());
 app.use(express.json());
 
 // Rotas
-app.use("/api/auth", authRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api', enrollmentRoutes);
 
 // Rota de teste
-app.get("/api", (req, res) => {
-  res.json({ message: "Badges @ CESAE Digital API a funcionar!" });
+app.get('/api', (req, res) => {
+  res.json({ message: 'Badges @ CESAE Digital API a funcionar!' });
 });
 
 app.listen(PORT, () => {
