@@ -1,6 +1,6 @@
 // server/src/services/badgeGenerator.js
 // Motor de geração de badges com Canvas API (node-canvas)
-// Responsável: Lucas Santos
+// Responsável: Pedro Campos / Lucas Santos
 // Gera imagem PNG do badge com base no template e dados do participante/evento
 
 const { createCanvas, loadImage, registerFont } = require('canvas');
