@@ -19,7 +19,7 @@ export default function ValidatePage() {
       <div className="absolute top-0 right-0 p-6 lg:p-10">
         <div className="w-32 lg:w-40">
           <img
-            src="/cesae.webp"
+            src="/cesae-logo.svg"
             alt="CESAE Digital"
             width={160}
             height={80}
