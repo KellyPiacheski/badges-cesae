@@ -9,6 +9,8 @@ const authRoutes = require("./routes/auth");
 const eventRoutes = require("./routes/events");
 const enrollmentRoutes = require("./routes/enrollments");
 const certificateRoutes = require("./routes/certificates");
+const emailRoutes = require("./routes/emails");
+const emailLogRoutes = require("./routes/emailLogs");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,3 +33,9 @@ app.get("/api", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor a correr em http://localhost:${PORT}`);
 });
+
+// Rotas de emails (enviar certificados em massa)
+app.use("/api", emailRoutes);
+
+// Rotas de logs de email
+app.use("/api", emailLogRoutes);
