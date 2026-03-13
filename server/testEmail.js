@@ -14,3 +14,7 @@ async function test() {
 }
 
 test();
+
+// Para testar o envio de email:
+// cd server
+// node testEmail.js
