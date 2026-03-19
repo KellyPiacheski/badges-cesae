@@ -4,6 +4,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 const authRoutes = require("./routes/auth");
 const eventRoutes = require("./routes/events");
@@ -18,6 +19,9 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Static files para badges/certificados
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Rotas
 app.use("/api/auth", authRoutes);
