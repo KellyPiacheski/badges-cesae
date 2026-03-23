@@ -12,6 +12,7 @@ const enrollmentRoutes = require("./routes/enrollments");
 const certificateRoutes = require("./routes/certificates");
 const emailRoutes = require("./routes/emails");
 const emailLogRoutes = require("./routes/emailLogs");
+const statsRoutes = require("./routes/stats");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -28,8 +29,11 @@ app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api", enrollmentRoutes);
 app.use("/api/certificates", certificateRoutes);
+app.use("/api", emailRoutes);
+app.use("/api", emailLogRoutes);
+app.use("/api/stats", statsRoutes);
 
-// Rota de teste
+// Health check
 app.get("/api", (req, res) => {
   res.json({ message: "Badges @ CESAE Digital API a funcionar!" });
 });
@@ -37,9 +41,3 @@ app.get("/api", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor a correr em http://localhost:${PORT}`);
 });
-
-// Rotas de emails (enviar certificados em massa)
-app.use("/api", emailRoutes);
-
-// Rotas de logs de email
-app.use("/api", emailLogRoutes);
