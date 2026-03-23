@@ -156,4 +156,38 @@ async function generateCertificate(enrollmentId) {
   }
 }
 
-module.exports = { generateCertificate };
+/**
+ * Gera certificados PDF para todos os participantes elegíveis de um evento
+ *
+ * @param {Object} event - Objeto do evento (com enrollments e participants)
+ * @returns {Promise<Array>} - Array de resultados { enrollmentId, certificate, success }
+ */
+async function generateCertificatesForEvent(event) {
+  const results = [];
+  const eligibleEnrollments = event.enrollments.filter((e) => {
+    if (event.type === "evento") return e.status === "presente";
+    if (event.type === "curso") return e.evaluation_result === "aprovado";
+    return false;
+  });
+
+  for (const enrollment of eligibleEnrollments) {
+    try {
+      const result = await generateCertificate(enrollment.id);
+      results.push({
+        enrollmentId: enrollment.id,
+        certificate: result,
+        success: result.success !== false,
+      });
+    } catch (error) {
+      results.push({
+        enrollmentId: enrollment.id,
+        error: error.message,
+        success: false,
+      });
+    }
+  }
+
+  return results;
+}
+
+module.exports = { generateCertificate, generateCertificatesForEvent };
