@@ -7,9 +7,10 @@ const fs = require("fs");
 
 // Configuração do transporter com as variáveis de ambiente
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT),
+  host: process.env.EMAIL_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.EMAIL_PORT || "587"),
   secure: false,
+  requireTLS: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -41,8 +42,22 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
     console.log("Email enviado:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("Erro ao enviar email:", error);
-    return { success: false, error: error.message };
+    console.error("Erro ao enviar email:", {
+      code: error.code,
+      command: error.command,
+      response: error.response,
+      responseCode: error.responseCode,
+      message: error.message,
+    });
+    return {
+      success: false,
+      error: error.message,
+      detail: {
+        code: error.code || null,
+        response: error.response || null,
+        responseCode: error.responseCode || null,
+      },
+    };
   }
 }
 

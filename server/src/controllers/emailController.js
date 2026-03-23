@@ -50,6 +50,7 @@ async function sendBulkEmails(req, res) {
     // 4. Enviar email para cada certificado
     let enviados = 0;
     let falhados = 0;
+    let lastError = null;
 
     for (const certificate of certificates) {
       try {
@@ -86,6 +87,7 @@ async function sendBulkEmails(req, res) {
           await certificate.update({ email_sent: true, sent_at: new Date() });
           enviados++;
         } else {
+          lastError = result.detail || { message: result.error };
           await log.update({ status: "failed", error_message: result.error });
           falhados++;
         }
@@ -94,17 +96,25 @@ async function sendBulkEmails(req, res) {
           `Erro ao enviar email para certificado ${certificate.id}:`,
           err,
         );
+        lastError = { message: err.message };
         falhados++;
       }
     }
 
     // 5. Devolver relatório
-    return res.status(200).json({
-      message: "Envio concluído",
+    const responseBody = {
+      message: enviados > 0 ? "Envio concluído" : "Todos os envios falharam",
       enviados,
       falhados,
       total: certificates.length,
-    });
+    };
+
+    // Incluir detalhe do erro quando todos falharam — útil para diagnóstico
+    if (enviados === 0 && lastError) {
+      responseBody.erro = lastError;
+    }
+
+    return res.status(200).json(responseBody);
   };
 
   const timeout = new Promise((_, reject) =>
