@@ -156,13 +156,38 @@ export default function ValidateCodePage() {
                   </div>
                 </div>
 
+                {/* Botão de download do PDF */}
+                {certificate.pdfUrl && (
+                  <a
+                    href={`${SERVER_URL}${certificate.pdfUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full mt-6 bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    Descarregar Certificado PDF
+                  </a>
+                )}
+
                 {/* Botão LinkedIn */}
                 {pageUrl && (
                   <a
                     href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(pageUrl)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full mt-6 bg-[#0077B5] text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#006097] transition-colors"
+                    className="flex items-center justify-center gap-2 w-full mt-3 bg-[#0077B5] text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#006097] transition-colors"
                   >
                     <svg
                       className="w-4 h-4"
