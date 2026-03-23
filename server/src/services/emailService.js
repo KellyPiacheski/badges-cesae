@@ -97,6 +97,9 @@ function buildCertificateTemplate({
                   <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 28px 0;">
                     Concluíste com sucesso <strong>${eventTitle}</strong>. O teu certificado está pronto —
                     podes validá-lo online, descarregar o PDF ou partilhar no LinkedIn.
+                  <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
+                    O teu certificado de participação em <strong>${eventTitle}</strong> está disponível.
+                    Podes descarregar o PDF ou partilhar no LinkedIn com o teu código de validação.
                   </p>
 
                   <!-- Badge PNG (inline via CID — visível mesmo sem carregar imagens externas) -->
@@ -141,6 +144,14 @@ function buildCertificateTemplate({
                   <div style="text-align: center; margin: 0 0 8px 0;">
                     <a href="https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(validateUrl)}"
                        style="display: inline-block; background: #0077b5; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
+                  </div>`
+                      : ""
+                  }
+
+                  <!-- Botão LinkedIn -->
+                  <div style="text-align: center; margin: 16px 0;">
+                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=https://cesae.pt/validate/${validationCode}"
+                       style="display: inline-block; background: #0077b5; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
                       🔗 Partilhar no LinkedIn
                     </a>
                   </div>

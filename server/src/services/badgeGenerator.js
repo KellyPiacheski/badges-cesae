@@ -297,7 +297,7 @@ async function generateBadge(options) {
         return {
           filename,
           filepath,
-          url: `/uploads/badges/${filename}`,
+          url: `${process.env.SERVER_URL || ""}/uploads/badges/${filename}`,
         };
       }
     } catch (error) {
@@ -561,7 +561,7 @@ async function generateBadge(options) {
   return {
     filename,
     filepath,
-    url: `/uploads/badges/${filename}`,
+    url: `${process.env.SERVER_URL || ""}/uploads/badges/${filename}`,
   };
 }
 
