@@ -34,6 +34,8 @@ interface DashboardStats {
   porMes: { mes: string; eventos: number; badges: number }[];
 }
 
+type ExportFormat = 'xlsx' | 'pdf';
+
 function StatCard({
   label,
   value,
@@ -84,6 +86,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [exportLoading, setExportLoading] = useState<ExportFormat | null>(null);
+  const [exportError, setExportError] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -96,6 +100,35 @@ export default function DashboardPage() {
       .catch((err: any) => setError(err.message))
       .finally(() => setLoading(false));
   }, [token]);
+
+  async function handleExport(format: ExportFormat) {
+    if (!token) return;
+    setExportLoading(format);
+    setExportError('');
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const response = await fetch(`${API_URL}/stats/export?format=${format}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: `Erro ${response.status}` }));
+        throw new Error(err.error || `Erro ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio-cesae-${new Date().toISOString().slice(0, 10)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setExportError(err.message || 'Erro ao exportar relatório');
+    } finally {
+      setExportLoading(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -128,12 +161,58 @@ export default function DashboardPage() {
   if (!stats) return null;
 
   const { totais, taxas, porMes } = stats;
-  const totalEventosCursos = totais.eventos + totais.cursos;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
-      <p className="text-gray-500 mb-6">Visão geral da plataforma</p>
+      {/* Header com botões de exportação */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
+          <p className="text-gray-500">Visão geral da plataforma</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleExport('xlsx')}
+            disabled={exportLoading !== null}
+            className="flex items-center gap-1.5 bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exportLoading === 'xlsx' ? (
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+            )}
+            Excel
+          </button>
+          <button
+            onClick={() => handleExport('pdf')}
+            disabled={exportLoading !== null}
+            className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exportLoading === 'pdf' ? (
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              </svg>
+            )}
+            PDF
+          </button>
+        </div>
+      </div>
+
+      {exportError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm mb-4">
+          {exportError}
+        </div>
+      )}
 
       {/* Linha 1 — Totais principais */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -186,7 +265,7 @@ export default function DashboardPage() {
         </p>
 
         {mounted ? (
-          porMes.every(m => m.eventos === 0 && m.badges === 0) ? (
+          porMes.every((m) => m.eventos === 0 && m.badges === 0) ? (
             <div className="flex items-center justify-center py-12 text-gray-400 text-sm">
               Sem dados nos últimos 6 meses
             </div>
