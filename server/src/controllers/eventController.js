@@ -12,10 +12,8 @@ const {
 } = require("../models");
 const { Op } = require("sequelize");
 
-const { generateBadgesForEvent } = require("../services/badgeGenerator");
-const {
-  generateCertificatesForEvent,
-} = require("../services/certificateGenerator");
+const { generateBadge } = require("../services/badgeGenerator");
+const { generateCertificate } = require("../services/certificateGenerator");
 
 // POST /api/events — Criar evento/curso
 async function createEvent(req, res) {
@@ -241,7 +239,7 @@ async function emitEventBadges(req, res) {
         {
           model: Enrollment,
           as: "enrollments",
-          include: [Participant],
+          include: [{ model: Participant, as: "participant" }],
         },
       ],
     });
@@ -250,44 +248,65 @@ async function emitEventBadges(req, res) {
       return res.status(404).json({ error: "Evento não encontrado" });
     }
 
-    const eligible = event.enrollments.filter(
-      (e) => e.status === "presente" || e.evaluation_result === "aprovado",
-    );
-    if (eligible.length === 0) {
-      return res.status(400).json({ error: "Sem elegíveis" });
-    }
-
-    const template = await BadgeTemplate.findOne({
-      where: { is_default: true },
+    const eligible = event.enrollments.filter((e) => {
+      if (event.type === "evento") return e.status === "presente";
+      if (event.type === "curso") return e.evaluation_result === "aprovado";
+      return false;
     });
 
-    // Certs
-    const certResults = await generateCertificatesForEvent(event);
-    let certOK = 0;
-    for (const r of certResults) {
-      if (r.success) {
-        await Certificate.upsert({
-          enrollment_id: r.enrollmentId,
-          pdf_url: r.certificate.pdf_url,
-          validation_code: r.certificate.validation_code,
-          issued_at: new Date(),
-        });
-        certOK++;
-      }
+    if (eligible.length === 0) {
+      return res.status(400).json({ error: "Sem participantes elegíveis para emissão" });
     }
 
-    // Badges
-    const badgeResults = await generateBadgesForEvent(event, template);
+    const template = await BadgeTemplate.findOne({ where: { is_default: true } });
+    const templateConfig = template?.design_config || {};
+
     let badgeOK = 0;
-    for (const r of badgeResults) {
-      if (r.success) {
+    let certOK = 0;
+    const errors = [];
+
+    for (const enrollment of eligible) {
+      try {
+        // 1. Criar/obter registo do certificado para garantir validation_code
+        let certificate = await Certificate.findOne({
+          where: { enrollment_id: enrollment.id },
+        });
+        if (!certificate) {
+          certificate = await Certificate.create({
+            enrollment_id: enrollment.id,
+            validation_code: `CERT-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+            email_sent: false,
+          });
+        }
+
+        // 2. Gerar badge PNG (já tem o validation_code disponível)
+        const badgeResult = await generateBadge({
+          participantName: enrollment.participant.name,
+          eventTitle: event.title,
+          eventType: event.type,
+          date: new Date(event.start_date).toLocaleDateString("pt-PT"),
+          durationHours: event.duration_hours,
+          validationCode: certificate.validation_code,
+          template: templateConfig,
+        });
+
+        // 3. Guardar Badge na BD
         await Badge.upsert({
-          enrollment_id: r.enrollmentId,
-          image_url: r.badge.url,
-          template_id: template?.id,
+          enrollment_id: enrollment.id,
+          image_url: badgeResult.url,
+          template_id: template?.id || null,
           issued_at: new Date(),
         });
         badgeOK++;
+
+        // 4. Gerar PDF do certificado (badge já existe em disco)
+        const certResult = await generateCertificate(enrollment.id);
+        if (certResult.success !== false) {
+          certOK++;
+        }
+      } catch (err) {
+        console.error(`Erro ao emitir para enrollment ${enrollment.id}:`, err.message);
+        errors.push({ enrollmentId: enrollment.id, error: err.message });
       }
     }
 
@@ -296,6 +315,7 @@ async function emitEventBadges(req, res) {
       total: eligible.length,
       badges: badgeOK,
       certificates: certOK,
+      errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
     console.error(error);

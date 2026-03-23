@@ -9,6 +9,7 @@ interface CertificateData {
   eventTitle: string;
   issuedAt: string;
   badgeUrl: string | null;
+  pdfUrl: string | null;
 }
 
 export default function ValidateCodePage() {
@@ -17,12 +18,17 @@ export default function ValidateCodePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [certificate, setCertificate] = useState<CertificateData | null>(null);
+  const [pageUrl, setPageUrl] = useState("");
+
+  useEffect(() => {
+    setPageUrl(window.location.href);
+  }, []);
 
   useEffect(() => {
     const validate = async () => {
       try {
         const response = await apiFetch(`/certificates/validate/${code}`);
-        setCertificate(response.data);
+        setCertificate(response);
       } catch (err: any) {
         if (err.response?.status === 404) {
           setError("Código de validação inválido ou não encontrado.");
@@ -35,6 +41,12 @@ export default function ValidateCodePage() {
     };
     validate();
   }, [code]);
+
+  const SERVER_URL =
+    (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(
+      /\/api$/,
+      ""
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex items-center justify-center px-4">
@@ -144,9 +156,53 @@ export default function ValidateCodePage() {
                   </div>
                 </div>
 
+                {/* Botão de download do PDF */}
+                {certificate.pdfUrl && (
+                  <a
+                    href={`${SERVER_URL}${certificate.pdfUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full mt-6 bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    Descarregar Certificado PDF
+                  </a>
+                )}
+
+                {/* Botão LinkedIn */}
+                {pageUrl && (
+                  <a
+                    href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(pageUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full mt-3 bg-[#0077B5] text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#006097] transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                    </svg>
+                    Partilhar no LinkedIn
+                  </a>
+                )}
+
                 <a
                   href="/validate"
-                  className="block text-center text-purple-600 hover:text-purple-700 text-sm font-semibold mt-6"
+                  className="block text-center text-purple-600 hover:text-purple-700 text-sm font-semibold mt-4"
                 >
                   Verificar outro certificado
                 </a>
