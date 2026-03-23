@@ -15,7 +15,7 @@ router.get("/validate/:code", validateCertificate);
 
 // POST /api/certificates — emitir certificado (admin only)
 router.post(
-  "/certificates",
+  "/",
   authMiddleware,
   roleGuard("admin"),
   createCertificate,

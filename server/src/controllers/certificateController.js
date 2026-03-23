@@ -4,9 +4,10 @@
 const Certificate = require("../models/Certificate");
 const Enrollment = require("../models/Enrollment");
 const Event = require("../models/Event");
+const Participant = require("../models/Participant");
+const Badge = require("../models/Badge");
 const {
-  generateValidationCode,
-  generateCertificatePDF,
+  generateCertificate,
 } = require("../services/certificateGenerator");
 
 async function validateCertificate(req, res) {
@@ -102,23 +103,19 @@ async function createCertificate(req, res) {
         });
     }
 
-    // 3. Generate unique code
-    const validation_code = await generateValidationCode(enrollment_id);
+    // 3. Gerar certificado (cria registo + gera PDF)
+    const result = await generateCertificate(enrollment_id);
 
-    // 4. Generate PDF stub
-    const pdf_url = await generateCertificatePDF(enrollment_id);
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Erro ao gerar certificado" });
+    }
 
-    // 5. Create certificate
-    const certificate = await Certificate.create({
-      enrollment_id,
-      validation_code,
-      pdf_url,
-    });
+    const certificate = await Certificate.findOne({ where: { enrollment_id } });
 
     return res.status(201).json({
       message: "Certificado emitido com sucesso",
       certificate,
-      validationCode: validation_code,
+      validationCode: result.validationCode,
     });
   } catch (error) {
     console.error("Erro ao criar certificado:", error);
