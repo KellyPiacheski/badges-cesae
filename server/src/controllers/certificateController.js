@@ -52,6 +52,7 @@ async function validateCertificate(req, res) {
       eventTitle: event.title,
       issuedAt: certificate.issued_at,
       badgeUrl: badge ? badge.image_url : null,
+      pdfUrl: certificate.pdf_url || null,
     });
   } catch (error) {
     console.error("Erro na validação do certificado:", error);

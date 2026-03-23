@@ -9,6 +9,7 @@ interface CertificateData {
   eventTitle: string;
   issuedAt: string;
   badgeUrl: string | null;
+  pdfUrl: string | null;
 }
 
 export default function ValidateCodePage() {
@@ -22,7 +23,7 @@ export default function ValidateCodePage() {
     const validate = async () => {
       try {
         const response = await apiFetch(`/certificates/validate/${code}`);
-        setCertificate(response.data);
+        setCertificate(response);
       } catch (err: any) {
         if (err.response?.status === 404) {
           setError("Código de validação inválido ou não encontrado.");
@@ -35,6 +36,12 @@ export default function ValidateCodePage() {
     };
     validate();
   }, [code]);
+
+  const SERVER_URL =
+    (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(
+      /\/api$/,
+      ""
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 flex items-center justify-center px-4">
@@ -144,9 +151,34 @@ export default function ValidateCodePage() {
                   </div>
                 </div>
 
+                {/* Botão de download do PDF */}
+                {certificate.pdfUrl && (
+                  <a
+                    href={`${SERVER_URL}${certificate.pdfUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full mt-6 bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                    Descarregar Certificado PDF
+                  </a>
+                )}
+
                 <a
                   href="/validate"
-                  className="block text-center text-purple-600 hover:text-purple-700 text-sm font-semibold mt-6"
+                  className="block text-center text-purple-600 hover:text-purple-700 text-sm font-semibold mt-4"
                 >
                   Verificar outro certificado
                 </a>
