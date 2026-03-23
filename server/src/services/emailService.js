@@ -12,6 +12,8 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
 });
 
 // Função base de envio — aceita destinatário, assunto e corpo HTML
@@ -53,7 +55,7 @@ function buildCertificateTemplate({
         <tr>
           <td align="center">
             <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-              
+
               <!-- Barra de topo -->
               <tr>
                 <td style="background: linear-gradient(to right, #1e3a8a, #9333ea, #ec4899); height: 6px;"></td>
@@ -74,7 +76,7 @@ function buildCertificateTemplate({
                     Parabéns, ${participantName}! 🎉
                   </h2>
                   <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
-                    O teu certificado de participação em <strong>${eventTitle}</strong> está disponível. 
+                    O teu certificado de participação em <strong>${eventTitle}</strong> está disponível.
                     Podes descarregar o PDF ou partilhar no LinkedIn com o teu código de validação.
                   </p>
 
@@ -109,7 +111,7 @@ function buildCertificateTemplate({
 
                   <!-- Botão LinkedIn -->
                   <div style="text-align: center; margin: 16px 0;">
-                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=https://cesae.pt/validate/${validationCode}" 
+                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=https://cesae.pt/validate/${validationCode}"
                        style="display: inline-block; background: #0077b5; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
                       🔗 Partilhar no LinkedIn
                     </a>
