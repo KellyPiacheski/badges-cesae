@@ -40,6 +40,21 @@ interface EventDetail {
   enrollments: EnrollmentItem[];
 }
 
+interface EmitResult {
+  message: string;
+  total: number;
+  badges: number;
+  certificates: number;
+  errors?: { enrollmentId: number; error: string }[];
+}
+
+interface EmailResult {
+  message: string;
+  enviados: number;
+  falhados: number;
+  total: number;
+}
+
 function parseCSV(text: string): Array<Record<string, string>> {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
@@ -92,6 +107,16 @@ export default function EventDetailPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ added: number; skipped: number; errors?: string[] } | null>(null);
+
+  // Emissão de badges/certificados
+  const [emitLoading, setEmitLoading] = useState(false);
+  const [emitResult, setEmitResult] = useState<EmitResult | null>(null);
+  const [emitError, setEmitError] = useState('');
+
+  // Envio de emails
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailResult, setEmailResult] = useState<EmailResult | null>(null);
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
     if (token && params.id) loadEvent();
@@ -207,6 +232,40 @@ export default function EventDetailPage() {
     }
   }
 
+  async function handleEmit() {
+    setEmitLoading(true);
+    setEmitResult(null);
+    setEmitError('');
+    try {
+      const data: EmitResult = await apiFetch(`/events/${params.id}/emit`, {
+        method: 'POST',
+        token: token!,
+      });
+      setEmitResult(data);
+    } catch (err: any) {
+      setEmitError(err.message || 'Erro ao emitir badges/certificados');
+    } finally {
+      setEmitLoading(false);
+    }
+  }
+
+  async function handleSendEmails() {
+    setEmailLoading(true);
+    setEmailResult(null);
+    setEmailError('');
+    try {
+      const data: EmailResult = await apiFetch(`/events/${params.id}/send-emails`, {
+        method: 'POST',
+        token: token!,
+      });
+      setEmailResult(data);
+    } catch (err: any) {
+      setEmailError(err.message || 'Erro ao enviar emails');
+    } finally {
+      setEmailLoading(false);
+    }
+  }
+
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString('pt-PT', {
       day: '2-digit', month: '2-digit', year: 'numeric'
@@ -219,6 +278,7 @@ export default function EventDetailPage() {
 
   const presentCount = event.enrollments.filter(e => e.status === 'presente').length;
   const approvedCount = event.enrollments.filter(e => e.evaluation_result === 'aprovado').length;
+  const eligibleCount = event.type === 'evento' ? presentCount : approvedCount;
 
   return (
     <div>
@@ -276,6 +336,101 @@ export default function EventDetailPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-2">Descrição</h2>
           <p className="text-sm text-gray-600">{event.description}</p>
+        </div>
+      )}
+
+      {/* Emit & Email Actions */}
+      {event.enrollments.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Emissão de certificados</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {eligibleCount > 0
+                  ? `${eligibleCount} participante${eligibleCount !== 1 ? 's' : ''} elegível${eligibleCount !== 1 ? 'eis' : ''} para emissão`
+                  : event.type === 'evento'
+                    ? 'Nenhum participante com presença confirmada'
+                    : 'Nenhum participante aprovado'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleEmit}
+                disabled={emitLoading || eligibleCount === 0}
+                className="flex items-center gap-2 bg-blue-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {emitLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    A emitir...
+                  </>
+                ) : (
+                  <>🎖️ Emitir badges</>
+                )}
+              </button>
+              <button
+                onClick={handleSendEmails}
+                disabled={emailLoading || eligibleCount === 0}
+                className="flex items-center gap-2 bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {emailLoading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    A enviar...
+                  </>
+                ) : (
+                  <>✉️ Enviar emails</>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Emit result */}
+          {emitResult && (
+            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800 mb-2">
+              <p className="font-medium">
+                {emitResult.badges} badge{emitResult.badges !== 1 ? 's' : ''} e {emitResult.certificates} certificado{emitResult.certificates !== 1 ? 's' : ''} emitidos (de {emitResult.total} elegíveis)
+              </p>
+              {emitResult.errors && emitResult.errors.length > 0 && (
+                <ul className="mt-1 text-xs space-y-0.5 text-green-700">
+                  {emitResult.errors.map((e, i) => (
+                    <li key={i}>• Enrollment {e.enrollmentId}: {e.error}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {emitError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 mb-2">
+              {emitError}
+            </div>
+          )}
+
+          {/* Email result */}
+          {emailResult && (
+            <div className={`border rounded-lg px-4 py-3 text-sm ${
+              emailResult.falhados > 0
+                ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                : 'bg-green-50 border-green-200 text-green-800'
+            }`}>
+              <p className="font-medium">
+                {emailResult.enviados} email{emailResult.enviados !== 1 ? 's' : ''} enviado{emailResult.enviados !== 1 ? 's' : ''}
+                {emailResult.falhados > 0 && `, ${emailResult.falhados} falhado${emailResult.falhados !== 1 ? 's' : ''}`}
+                {' '}(de {emailResult.total})
+              </p>
+            </div>
+          )}
+          {emailError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+              {emailError}
+            </div>
+          )}
         </div>
       )}
 
