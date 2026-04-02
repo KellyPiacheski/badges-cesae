@@ -13,7 +13,9 @@ const { sendCertificateEmail } = require("../services/emailService");
 
 // POST /api/events/:id/send-emails — Enviar emails em massa
 async function sendBulkEmails(req, res) {
-  try {
+  const TIMEOUT_MS = 25000;
+
+  const work = async () => {
     const { id } = req.params;
 
     // 1. Verificar se o evento existe
@@ -22,19 +24,18 @@ async function sendBulkEmails(req, res) {
       return res.status(404).json({ error: "Evento não encontrado" });
     }
 
-    // 2. Buscar todos os certificados do evento que ainda não foram enviados
+    // 2. Buscar inscrições do evento
     const enrollments = await Enrollment.findAll({
       where: { event_id: id },
     });
 
     if (enrollments.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "Não existem participantes neste evento" });
+      return res.status(200).json({ sent: 0, failed: 0, message: "Sem certificados para enviar" });
     }
 
     const enrollmentIds = enrollments.map((e) => e.id);
 
+    // 3. Buscar certificados ainda não enviados
     const certificates = await Certificate.findAll({
       where: {
         enrollment_id: enrollmentIds,
@@ -43,23 +44,24 @@ async function sendBulkEmails(req, res) {
     });
 
     if (certificates.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "Não existem certificados por enviar neste evento" });
+      return res.status(200).json({ sent: 0, failed: 0, message: "Sem certificados para enviar" });
     }
 
-    // 3. Enviar email para cada certificado
+    // 4. Enviar email para cada certificado
     let enviados = 0;
     let falhados = 0;
+    let lastError = null;
 
     for (const certificate of certificates) {
       try {
         const enrollment = enrollments.find(
           (e) => e.id === certificate.enrollment_id,
         );
+
         const participant = await Participant.findByPk(
           enrollment.participant_id,
         );
+
         const badge = await Badge.findOne({
           where: { enrollment_id: enrollment.id },
         });
@@ -85,6 +87,7 @@ async function sendBulkEmails(req, res) {
           await certificate.update({ email_sent: true, sent_at: new Date() });
           enviados++;
         } else {
+          lastError = result.detail || { message: result.error };
           await log.update({ status: "failed", error_message: result.error });
           falhados++;
         }
@@ -93,20 +96,45 @@ async function sendBulkEmails(req, res) {
           `Erro ao enviar email para certificado ${certificate.id}:`,
           err,
         );
+        lastError = { message: err.message };
         falhados++;
       }
     }
 
-    // 4. Devolver relatório
-    return res.status(200).json({
-      message: `Envio concluído`,
+    // 5. Devolver relatório
+    const responseBody = {
+      message: enviados > 0 ? "Envio concluído" : "Todos os envios falharam",
       enviados,
       falhados,
       total: certificates.length,
-    });
+    };
+
+    // Incluir detalhe do erro quando todos falharam — útil para diagnóstico
+    if (enviados === 0 && lastError) {
+      responseBody.erro = lastError;
+    }
+
+    return res.status(200).json(responseBody);
+  };
+
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("TIMEOUT")), TIMEOUT_MS),
+  );
+
+  try {
+    await Promise.race([work(), timeout]);
   } catch (error) {
-    console.error("Erro no envio em massa:", error);
-    return res.status(500).json({ error: "Erro interno do servidor" });
+    if (error.message === "TIMEOUT") {
+      console.error("Timeout no envio de emails (25s)");
+      if (!res.headersSent) {
+        return res.status(504).json({ error: "O envio de emails demorou demasiado. Tenta novamente." });
+      }
+    } else {
+      console.error("Erro no envio em massa:", error);
+      if (!res.headersSent) {
+        return res.status(500).json({ error: "Erro interno do servidor" });
+      }
+    }
   }
 }
 

@@ -13,6 +13,9 @@ const certificateRoutes = require("./routes/certificates");
 const emailRoutes = require("./routes/emails");
 const emailLogRoutes = require("./routes/emailLogs");
 const statsRoutes = require("./routes/stats");
+const userRoutes = require("./routes/users");
+const participantRoutes = require("./routes/participants");
+const templateRoutes = require("./routes/templates");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -32,6 +35,9 @@ app.use("/api/certificates", certificateRoutes);
 app.use("/api", emailRoutes);
 app.use("/api", emailLogRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/participants", participantRoutes);
+app.use("/api/templates", templateRoutes);
 
 // Health check
 app.get("/api", (req, res) => {
