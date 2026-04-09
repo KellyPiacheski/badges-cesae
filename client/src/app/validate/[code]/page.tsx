@@ -159,7 +159,7 @@ export default function ValidateCodePage() {
                 {/* Botão de download do PDF */}
                 {certificate.pdfUrl && (
                   <a
-                    href={`${SERVER_URL}${certificate.pdfUrl}`}
+                    href={certificate.pdfUrl.startsWith('http') ? certificate.pdfUrl : `${SERVER_URL}${certificate.pdfUrl}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full mt-6 bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors"
