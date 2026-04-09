@@ -53,6 +53,7 @@ interface EmailResult {
   enviados: number;
   falhados: number;
   total: number;
+  erro?: { message?: string; code?: string; response?: string };
 }
 
 function parseCSV(text: string): Array<Record<string, string>> {
@@ -424,6 +425,9 @@ export default function EventDetailPage() {
                 {emailResult.falhados > 0 && `, ${emailResult.falhados} falhado${emailResult.falhados !== 1 ? 's' : ''}`}
                 {' '}(de {emailResult.total})
               </p>
+              {emailResult.erro && (
+                <p className="text-xs mt-1 opacity-80">Erro: {emailResult.erro.message || emailResult.erro.code || JSON.stringify(emailResult.erro)}</p>
+              )}
             </div>
           )}
           {emailError && (
