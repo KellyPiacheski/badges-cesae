@@ -71,7 +71,8 @@ function buildCertificateTemplate({
   pdfUrl,
 }) {
   const SERVER_URL = process.env.SERVER_URL || "";
-  const validateUrl = `${SERVER_URL}/validate/${validationCode}`;
+  const CLIENT_URL = process.env.CLIENT_URL || SERVER_URL;
+  const validateUrl = `${CLIENT_URL}/validate/${validationCode}`;
 
   return `
     <!DOCTYPE html>
@@ -106,7 +107,7 @@ function buildCertificateTemplate({
 
                   <!-- Congratulações -->
                   <h2 style="color: #111827; font-size: 20px; margin: 0 0 12px 0;">
-                    Parabéns, ${participantName}! 🎉
+                    Parabéns, ${participantName}! 
                   </h2>
                   <p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 28px 0;">
                     Concluíste com sucesso <strong>${eventTitle}</strong>. O teu certificado está pronto —
@@ -132,7 +133,7 @@ function buildCertificateTemplate({
                   <div style="text-align: center; margin: 0 0 16px 0;">
                     <a href="${validateUrl}"
                        style="display: inline-block; background: linear-gradient(to right, #1e3a8a, #9333ea); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px;">
-                      ✅ Ver certificado online
+                       Ver certificado online
                     </a>
                   </div>
 
@@ -145,9 +146,9 @@ function buildCertificateTemplate({
                   <!-- Botão PDF -->
                   ${pdfUrl ? `
                   <div style="text-align: center; margin: 0 0 16px 0;">
-                    <a href="${pdfUrl}"
+                    <a href="${SERVER_URL}${pdfUrl}"
                        style="display: inline-block; background: #1e3a8a; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-                      📄 Descarregar Certificado PDF
+                       Descarregar Certificado PDF
                     </a>
                   </div>` : ""}
 
@@ -155,7 +156,7 @@ function buildCertificateTemplate({
                   <div style="text-align: center; margin: 0 0 8px 0;">
                     <a href="https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(validateUrl)}"
                        style="display: inline-block; background: #0077b5; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-                      🔗 Partilhar no LinkedIn
+                       Partilhar no LinkedIn
                     </a>
                   </div>
                   <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 10px 0 0 0;">
