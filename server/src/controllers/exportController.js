@@ -171,8 +171,8 @@ async function exportPdf(res, eventos, enrollments) {
         <td>${enr.event?.title || "—"}</td>
         <td>${enr.status || "—"}</td>
         <td>${enr.evaluation_result || "—"}</td>
-        <td class="num">${enr.badge ? "✓" : "—"}</td>
-        <td class="num">${enr.certificate ? "✓" : "—"}</td>
+        <td class="num">${enr.badge ? "" : "—"}</td>
+        <td class="num">${enr.certificate ? "" : "—"}</td>
       </tr>`
     )
     .join("");
@@ -256,7 +256,10 @@ async function exportPdf(res, eventos, enrollments) {
 
   let browser;
   try {
-    browser = await puppeteer.launch({ headless: true });
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
 

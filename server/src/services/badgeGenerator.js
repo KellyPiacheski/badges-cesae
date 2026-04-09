@@ -184,7 +184,7 @@ async function renderSvgToPng(svgContent, badgeData = {}, template = {}) {
     ctx.textAlign = "center";
 
     const infoItems = [];
-    if (badgeData.date) infoItems.push(`📅 ${badgeData.date}`);
+    if (badgeData.date) infoItems.push(` ${badgeData.date}`);
     if (badgeData.durationHours)
       infoItems.push(`⏱ ${badgeData.durationHours} horas`);
 
@@ -497,7 +497,7 @@ async function generateBadge(options) {
   ctx.textAlign = "center";
 
   const infoItems = [];
-  if (date) infoItems.push(`📅 ${date}`);
+  if (date) infoItems.push(` ${date}`);
   if (durationHours) infoItems.push(`⏱ ${durationHours} horas`);
 
   if (infoItems.length > 0) {

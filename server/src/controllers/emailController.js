@@ -13,7 +13,7 @@ const { sendCertificateEmail } = require("../services/emailService");
 
 // POST /api/events/:id/send-emails — Enviar emails em massa
 async function sendBulkEmails(req, res) {
-  const TIMEOUT_MS = 25000;
+  const TIMEOUT_MS = 120000; // 2 minutos
 
   const work = async () => {
     const { id } = req.params;
@@ -27,10 +27,14 @@ async function sendBulkEmails(req, res) {
     // 2. Buscar inscrições do evento
     const enrollments = await Enrollment.findAll({
       where: { event_id: id },
+      include: [
+        { model: Participant, as: "participant" },
+        { model: Badge, as: "badge" },
+      ],
     });
 
     if (enrollments.length === 0) {
-      return res.status(200).json({ sent: 0, failed: 0, message: "Sem certificados para enviar" });
+      return res.status(200).json({ enviados: 0, falhados: 0, total: 0, message: "Sem certificados para enviar" });
     }
 
     const enrollmentIds = enrollments.map((e) => e.id);
@@ -44,8 +48,11 @@ async function sendBulkEmails(req, res) {
     });
 
     if (certificates.length === 0) {
-      return res.status(200).json({ sent: 0, failed: 0, message: "Sem certificados para enviar" });
+      return res.status(200).json({ enviados: 0, falhados: 0, total: 0, message: "Sem certificados para enviar" });
     }
+
+    // Mapas para acesso O(1) por enrollment_id
+    const enrollmentMap = new Map(enrollments.map((e) => [e.id, e]));
 
     // 4. Enviar email para cada certificado
     let enviados = 0;
@@ -54,17 +61,14 @@ async function sendBulkEmails(req, res) {
 
     for (const certificate of certificates) {
       try {
-        const enrollment = enrollments.find(
-          (e) => e.id === certificate.enrollment_id,
-        );
+        const enrollment = enrollmentMap.get(certificate.enrollment_id);
+        const participant = enrollment?.participant;
+        const badge = enrollment?.badge;
 
-        const participant = await Participant.findByPk(
-          enrollment.participant_id,
-        );
-
-        const badge = await Badge.findOne({
-          where: { enrollment_id: enrollment.id },
-        });
+        if (!participant) {
+          falhados++;
+          continue;
+        }
 
         // Criar log com status pending
         const log = await EmailLog.create({
@@ -125,7 +129,7 @@ async function sendBulkEmails(req, res) {
     await Promise.race([work(), timeout]);
   } catch (error) {
     if (error.message === "TIMEOUT") {
-      console.error("Timeout no envio de emails (25s)");
+      console.error("Timeout no envio de emails (120s)");
       if (!res.headersSent) {
         return res.status(504).json({ error: "O envio de emails demorou demasiado. Tenta novamente." });
       }

@@ -17,7 +17,7 @@ async function test() {
       durationHours: 4,
       validationCode: "CESAE-AB12-CD34-EF56",
     });
-    console.log("✅ Badge de evento gerado:", badge1.filepath);
+    console.log(" Badge de evento gerado:", badge1.filepath);
 
     // Teste 2: Badge de curso
     const badge2 = await generateBadge({
@@ -28,7 +28,7 @@ async function test() {
       durationHours: 40,
       validationCode: "CESAE-GH78-IJ90-KL12",
     });
-    console.log("✅ Badge de curso gerado:", badge2.filepath);
+    console.log(" Badge de curso gerado:", badge2.filepath);
 
     // Teste 3: Badge com template customizado
     const badge3 = await generateBadge({
@@ -45,13 +45,13 @@ async function test() {
         backgroundColor: "#FAFAFA",
       },
     });
-    console.log("✅ Badge customizado gerado:", badge3.filepath);
+    console.log(" Badge customizado gerado:", badge3.filepath);
 
     console.log(
-      "\n🎉 Todos os testes passaram! Verifica os badges em uploads/badges/",
+      "\n Todos os testes passaram! Verifica os badges em uploads/badges/",
     );
   } catch (error) {
-    console.error("❌ Erro:", error.message);
+    console.error(" Erro:", error.message);
   }
 }
 

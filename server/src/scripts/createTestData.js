@@ -42,7 +42,7 @@ async function createTestData() {
       },
     });
 
-    console.log("✅ Enrollment ID:", enrollment.id);
+    console.log(" Enrollment ID:", enrollment.id);
 
     // Badge template
     const [template] = await BadgeTemplate.findOrCreate({
@@ -57,13 +57,13 @@ async function createTestData() {
       image_url: "/uploads/badges/test.png",
     });
 
-    console.log("✅ Badge criado");
+    console.log(" Badge criado");
 
     // Test certificate
     const { generateCertificate } = require("../services/certificateGenerator");
     const result = await generateCertificate(enrollment.id);
 
-    console.log(result.success ? "🎉 PDF OK!" : "❌ PDF erro:", result.error);
+    console.log(result.success ? " PDF OK!" : " PDF erro:", result.error);
   } catch (error) {
     console.error("ERRO:", error.message);
   } finally {
