@@ -348,7 +348,7 @@ export default function EventDetailPage() {
               <h2 className="text-sm font-semibold text-gray-900">Emissão de certificados</h2>
               <p className="text-xs text-gray-500 mt-0.5">
                 {eligibleCount > 0
-                  ? `${eligibleCount} participante${eligibleCount !== 1 ? 's' : ''} elegível${eligibleCount !== 1 ? 'eis' : ''} para emissão`
+                  ? `${eligibleCount} participante${eligibleCount !== 1 ? 's' : ''} ${eligibleCount !== 1 ? 'elegíveis' : 'elegível'} para emissão`
                   : event.type === 'evento'
                     ? 'Nenhum participante com presença confirmada'
                     : 'Nenhum participante aprovado'}

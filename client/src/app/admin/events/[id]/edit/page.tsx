@@ -3,6 +3,8 @@
 
 'use client';
 
+'use client';
+
 import { useState, useEffect, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -16,6 +18,7 @@ export default function EditEventPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [templates, setTemplates] = useState<{ id: number; name: string }[]>([]);
 
   const [form, setForm] = useState({
     title: '',
@@ -26,10 +29,14 @@ export default function EditEventPage() {
     location: '',
     duration_hours: '',
     category: '',
+    template_id: '',
   });
 
   useEffect(() => {
-    if (token && params.id) loadEvent();
+    if (token && params.id) {
+      loadEvent();
+      apiFetch('/templates', { token }).then(setTemplates).catch(() => {});
+    }
   }, [token, params.id]);
 
   async function loadEvent() {
@@ -44,6 +51,7 @@ export default function EditEventPage() {
         location: data.location || '',
         duration_hours: data.duration_hours ? String(data.duration_hours) : '',
         category: data.category || '',
+        template_id: data.template_id ? String(data.template_id) : '',
       });
     } catch (err: any) {
       setError(err.message);
