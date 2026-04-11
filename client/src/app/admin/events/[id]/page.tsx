@@ -109,6 +109,10 @@ export default function EventDetailPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ added: number; skipped: number; errors?: string[] } | null>(null);
 
+  // Templates
+  const [templates, setTemplates] = useState<{ id: number; name: string }[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+
   // Emissão de badges/certificados
   const [emitLoading, setEmitLoading] = useState(false);
   const [emitResult, setEmitResult] = useState<EmitResult | null>(null);
@@ -118,9 +122,14 @@ export default function EventDetailPage() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailResult, setEmailResult] = useState<EmailResult | null>(null);
   const [emailError, setEmailError] = useState('');
+  const [resendingId, setResendingId] = useState<number | null>(null);
+  const [resendResult, setResendResult] = useState<{ enrollmentId: number; success: boolean; message: string } | null>(null);
 
   useEffect(() => {
-    if (token && params.id) loadEvent();
+    if (token && params.id) {
+      loadEvent();
+      apiFetch('/templates', { token }).then(setTemplates).catch(() => {});
+    }
   }, [token, params.id]);
 
   async function loadEvent() {
@@ -241,12 +250,29 @@ export default function EventDetailPage() {
       const data: EmitResult = await apiFetch(`/events/${params.id}/emit`, {
         method: 'POST',
         token: token!,
+        body: selectedTemplateId ? JSON.stringify({ template_id: parseInt(selectedTemplateId) }) : undefined,
       });
       setEmitResult(data);
     } catch (err: any) {
       setEmitError(err.message || 'Erro ao emitir badges/certificados');
     } finally {
       setEmitLoading(false);
+    }
+  }
+
+  async function handleResendEmail(enrollmentId: number) {
+    setResendingId(enrollmentId);
+    setResendResult(null);
+    try {
+      await apiFetch(`/enrollments/${enrollmentId}/resend-email`, {
+        method: 'POST',
+        token: token!,
+      });
+      setResendResult({ enrollmentId, success: true, message: 'Email reenviado com sucesso' });
+    } catch (err: any) {
+      setResendResult({ enrollmentId, success: false, message: err.message || 'Erro ao reenviar email' });
+    } finally {
+      setResendingId(null);
     }
   }
 
@@ -354,7 +380,17 @@ export default function EventDetailPage() {
                     : 'Nenhum participante aprovado'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 focus:outline-none focus:border-blue-500"
+              >
+                <option value="">Template padrão</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
               <button
                 onClick={handleEmit}
                 disabled={emitLoading || eligibleCount === 0}
@@ -433,6 +469,11 @@ export default function EventDetailPage() {
           {emailError && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
               {emailError}
+            </div>
+          )}
+          {resendResult && (
+            <div className={`border rounded-lg px-4 py-3 text-sm mt-2 ${resendResult.success ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+              {resendResult.message}
             </div>
           )}
         </div>
@@ -655,12 +696,22 @@ export default function EventDetailPage() {
                     </>
                   )}
                   <td className="px-6 py-3 text-right">
-                    <button
-                      onClick={() => handleRemoveParticipant(enrollment.id, enrollment.participant.name)}
-                      className="text-xs text-red-500 hover:text-red-700 font-medium"
-                    >
-                      Remover
-                    </button>
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => handleResendEmail(enrollment.id)}
+                        disabled={resendingId === enrollment.id}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-40"
+                        title="Reenviar email do certificado"
+                      >
+                        {resendingId === enrollment.id ? 'A enviar...' : 'Reenviar email'}
+                      </button>
+                      <button
+                        onClick={() => handleRemoveParticipant(enrollment.id, enrollment.participant.name)}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        Remover
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

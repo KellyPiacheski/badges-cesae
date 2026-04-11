@@ -71,6 +71,7 @@ export default function TemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [previewTpl, setPreviewTpl] = useState<BadgeTemplate | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -224,6 +225,12 @@ export default function TemplatesPage() {
 
               <div className="flex gap-2 mt-auto pt-2 border-t border-gray-100">
                 <button
+                  onClick={() => setPreviewTpl(tpl)}
+                  className="flex-1 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Preview
+                </button>
+                <button
                   onClick={() => openEdit(tpl)}
                   className="flex-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
                 >
@@ -341,6 +348,50 @@ export default function TemplatesPage() {
                 className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-900 hover:bg-blue-800 rounded-lg transition-colors disabled:opacity-50"
               >
                 {saving ? "A guardar..." : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de preview */}
+      {previewTpl && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Preview — {previewTpl.name}</h2>
+              <button onClick={() => setPreviewTpl(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+            </div>
+            <div className="p-6">
+              {(() => {
+                const c = previewTpl.design_config ? { ...DEFAULT_CONFIG, ...previewTpl.design_config } : DEFAULT_CONFIG;
+                return (
+                  <div className="rounded-2xl border-4 p-6 flex flex-col items-center gap-3" style={{ backgroundColor: c.backgroundColor, borderColor: c.borderColor }}>
+                    <div className="w-full h-2 rounded-full mb-1" style={{ backgroundColor: c.accentColor }} />
+                    <p className="text-xs font-bold tracking-widest uppercase" style={{ color: c.primaryColor }}>CESAE DIGITAL</p>
+                    <div className="w-20 h-20 rounded-full border-4 flex items-center justify-center" style={{ borderColor: c.secondaryColor, backgroundColor: c.primaryColor }}>
+                      <span className="text-white text-lg font-bold">CD</span>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold mt-1" style={{ color: c.textColor }}>Nome do Participante</p>
+                      <p className="text-xs mt-0.5" style={{ color: c.lightTextColor }}>concluiu com sucesso</p>
+                      <p className="text-sm font-semibold mt-0.5" style={{ color: c.primaryColor }}>Nome do Evento</p>
+                    </div>
+                    <div className="w-full border-t mt-1 pt-3 flex justify-between text-xs" style={{ borderColor: c.borderColor, color: c.lightTextColor }}>
+                      <span>01/01/2026</span>
+                      <span style={{ color: c.accentColor }}>CERT-XXXX-XXXX</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full mt-1" style={{ backgroundColor: c.secondaryColor }} />
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="px-6 pb-6">
+              <button
+                onClick={() => setPreviewTpl(null)}
+                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Fechar
               </button>
             </div>
           </div>

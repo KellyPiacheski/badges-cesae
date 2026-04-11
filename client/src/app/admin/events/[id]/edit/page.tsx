@@ -74,6 +74,7 @@ export default function EditEventPage() {
         ...form,
         duration_hours: form.duration_hours ? parseInt(form.duration_hours) : null,
         end_date: form.end_date || null,
+        template_id: form.template_id ? parseInt(form.template_id) : null,
       };
 
       await apiFetch(`/events/${params.id}`, {
@@ -178,6 +179,19 @@ export default function EditEventPage() {
             id="category" name="category" value={form.category} onChange={handleChange}
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500"
           />
+        </div>
+
+        <div>
+          <label htmlFor="template_id" className="block text-sm font-medium text-gray-700 mb-1.5">Template de badge</label>
+          <select
+            id="template_id" name="template_id" value={form.template_id} onChange={handleChange}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500 bg-white text-gray-900"
+          >
+            <option value="">Template padrão</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex items-center gap-3 pt-2">
