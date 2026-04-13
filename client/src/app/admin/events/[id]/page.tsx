@@ -109,10 +109,6 @@ export default function EventDetailPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ added: number; skipped: number; errors?: string[] } | null>(null);
 
-  // Templates
-  const [templates, setTemplates] = useState<{ id: number; name: string }[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
-
   // Emissão de badges/certificados
   const [emitLoading, setEmitLoading] = useState(false);
   const [emitResult, setEmitResult] = useState<EmitResult | null>(null);
@@ -128,7 +124,6 @@ export default function EventDetailPage() {
   useEffect(() => {
     if (token && params.id) {
       loadEvent();
-      apiFetch('/templates', { token }).then(setTemplates).catch(() => {});
     }
   }, [token, params.id]);
 
@@ -250,7 +245,7 @@ export default function EventDetailPage() {
       const data: EmitResult = await apiFetch(`/events/${params.id}/emit`, {
         method: 'POST',
         token: token!,
-        body: selectedTemplateId ? JSON.stringify({ template_id: parseInt(selectedTemplateId) }) : undefined,
+        body: undefined,
       });
       setEmitResult(data);
     } catch (err: any) {
@@ -381,16 +376,6 @@ export default function EventDetailPage() {
               </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={selectedTemplateId}
-                onChange={(e) => setSelectedTemplateId(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 focus:outline-none focus:border-blue-500"
-              >
-                <option value="">Template padrão</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
               <button
                 onClick={handleEmit}
                 disabled={emitLoading || eligibleCount === 0}
