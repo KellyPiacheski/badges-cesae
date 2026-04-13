@@ -12,6 +12,7 @@ interface DesignConfig {
   textColor: string;
   lightTextColor: string;
   borderColor: string;
+  globeColor: string;
 }
 
 interface BadgeTemplate {
@@ -27,24 +28,67 @@ const DEFAULT_CONFIG: DesignConfig = {
   backgroundColor: "#FFFFFF",
   primaryColor: "#1B4F72",
   secondaryColor: "#2E86C1",
-  accentColor: "#27AE60",
+  accentColor: "#7B2FBE",
   textColor: "#1C2833",
   lightTextColor: "#566573",
   borderColor: "#D4E6F1",
+  globeColor: "#A569BD",
 };
 
 const COLOR_LABELS: Record<keyof DesignConfig, string> = {
   backgroundColor: "Fundo",
   primaryColor: "Primária",
   secondaryColor: "Secundária",
-  accentColor: "Destaque",
+  accentColor: "Destaque (fundo badge)",
   textColor: "Texto",
   lightTextColor: "Texto claro",
   borderColor: "Borda",
+  globeColor: "Linha do globo",
 };
 
+function BadgePreview({ config, eventTitle = "Nome do Evento" }: { config: DesignConfig; eventTitle?: string }) {
+  const bg = config.accentColor || "#7B2FBE";
+  const lineColor = config.secondaryColor || "#9B59B6";
+  const globeColor = config.globeColor || "#A569BD";
+
+  return (
+    <div
+      className="relative rounded-2xl overflow-hidden flex flex-col"
+      style={{ backgroundColor: bg, aspectRatio: "1/1", width: "100%" }}
+    >
+      {/* Topo: logo CESAE + verificado */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        <img src="/cesae-logo.svg" alt="CESAE Digital" className="h-7 brightness-0 invert" />
+        <span className="text-white font-bold text-sm">Verificado</span>
+      </div>
+
+      {/* Linha separadora */}
+      <div className="w-full h-px" style={{ backgroundColor: lineColor }} />
+
+      {/* Globo centrado */}
+      <div className="flex-1 flex items-center justify-center py-3">
+        <svg viewBox="0 0 100 100" className="w-2/3 h-2/3" fill="none" stroke={globeColor} strokeWidth="3">
+          <circle cx="50" cy="50" r="38" />
+          <ellipse cx="50" cy="50" rx="20" ry="38" />
+          <line x1="12" y1="50" x2="88" y2="50" />
+          <path d="M17 30 Q50 40 83 30" />
+          <path d="M17 70 Q50 60 83 70" />
+        </svg>
+      </div>
+
+      {/* Título do evento */}
+      <div className="px-4 pb-4 text-center">
+        <p className="text-white font-bold text-sm leading-tight">{eventTitle}</p>
+      </div>
+    </div>
+  );
+}
+
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("pt-PT", {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("pt-PT", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -320,17 +364,8 @@ export default function TemplatesPage() {
               {/* Preview */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Preview</label>
-                <div
-                  className="rounded-xl border p-4 flex flex-col items-center gap-2"
-                  style={{ backgroundColor: form.design_config.backgroundColor, borderColor: form.design_config.borderColor }}
-                >
-                  <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: form.design_config.accentColor }} />
-                  <p className="text-xs font-bold" style={{ color: form.design_config.primaryColor }}>CESAE DIGITAL</p>
-                  <div className="w-12 h-12 rounded-full border-2 flex items-center justify-center" style={{ borderColor: form.design_config.secondaryColor, backgroundColor: form.design_config.primaryColor }}>
-                    <span className="text-white text-xs font-bold">CD</span>
-                  </div>
-                  <p className="text-xs font-semibold" style={{ color: form.design_config.textColor }}>Nome do Participante</p>
-                  <p className="text-xs" style={{ color: form.design_config.lightTextColor }}>Nome do Evento</p>
+                <div className="w-48 mx-auto">
+                  <BadgePreview config={form.design_config} eventTitle={form.name || "Nome do Evento"} />
                 </div>
               </div>
             </div>
@@ -363,28 +398,12 @@ export default function TemplatesPage() {
               <button onClick={() => setPreviewTpl(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
             </div>
             <div className="p-6">
-              {(() => {
-                const c = previewTpl.design_config ? { ...DEFAULT_CONFIG, ...previewTpl.design_config } : DEFAULT_CONFIG;
-                return (
-                  <div className="rounded-2xl border-4 p-6 flex flex-col items-center gap-3" style={{ backgroundColor: c.backgroundColor, borderColor: c.borderColor }}>
-                    <div className="w-full h-2 rounded-full mb-1" style={{ backgroundColor: c.accentColor }} />
-                    <p className="text-xs font-bold tracking-widest uppercase" style={{ color: c.primaryColor }}>CESAE DIGITAL</p>
-                    <div className="w-20 h-20 rounded-full border-4 flex items-center justify-center" style={{ borderColor: c.secondaryColor, backgroundColor: c.primaryColor }}>
-                      <span className="text-white text-lg font-bold">CD</span>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-sm font-bold mt-1" style={{ color: c.textColor }}>Nome do Participante</p>
-                      <p className="text-xs mt-0.5" style={{ color: c.lightTextColor }}>concluiu com sucesso</p>
-                      <p className="text-sm font-semibold mt-0.5" style={{ color: c.primaryColor }}>Nome do Evento</p>
-                    </div>
-                    <div className="w-full border-t mt-1 pt-3 flex justify-between text-xs" style={{ borderColor: c.borderColor, color: c.lightTextColor }}>
-                      <span>01/01/2026</span>
-                      <span style={{ color: c.accentColor }}>CERT-XXXX-XXXX</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full mt-1" style={{ backgroundColor: c.secondaryColor }} />
-                  </div>
-                );
-              })()}
+              <div className="w-56 mx-auto">
+                <BadgePreview
+                  config={previewTpl.design_config ? { ...DEFAULT_CONFIG, ...previewTpl.design_config } : DEFAULT_CONFIG}
+                  eventTitle={previewTpl.name}
+                />
+              </div>
             </div>
             <div className="px-6 pb-6">
               <button
