@@ -131,7 +131,7 @@ export default function ValidateCodePage() {
 
                 {certificate.badgeUrl && (
                   <img
-                    src={certificate.badgeUrl}
+                    src={certificate.badgeUrl.startsWith('http') ? certificate.badgeUrl : `${SERVER_URL}${certificate.badgeUrl}`}
                     alt="Badge"
                     className="w-32 h-32 mx-auto mb-6 rounded-lg shadow"
                   />
@@ -152,7 +152,9 @@ export default function ValidateCodePage() {
                     <p className="text-xs text-gray-500 mb-1">
                       Data de emissão
                     </p>
-                    <p className="font-semibold">{certificate.issuedAt}</p>
+                    <p className="font-semibold">
+                      {new Date(certificate.issuedAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </p>
                   </div>
                 </div>
 
