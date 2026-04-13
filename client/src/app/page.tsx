@@ -10,12 +10,6 @@ export default function Home() {
         </div>
         <nav className="flex items-center gap-6">
           <Link
-            href="/validate"
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Validar certificado
-          </Link>
-          <Link
             href="/login"
             className="bg-blue-900 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors"
           >
@@ -85,11 +79,8 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 px-8 py-6 flex items-center justify-between text-xs text-gray-400">
+      <footer className="border-t border-gray-100 px-8 py-6 flex items-center justify-center text-xs text-gray-400">
         <span>CESAE Digital © {new Date().getFullYear()}</span>
-        <Link href="/validate" className="hover:text-gray-600 transition-colors">
-          Validar certificado
-        </Link>
       </footer>
     </div>
   );

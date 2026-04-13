@@ -54,6 +54,7 @@ interface EmailResult {
   falhados: number;
   total: number;
   erro?: { message?: string; code?: string; response?: string };
+  falhados_detalhe?: { nome: string; email: string; erro: string }[];
 }
 
 function parseCSV(text: string): Array<Record<string, string>> {
@@ -446,8 +447,15 @@ export default function EventDetailPage() {
                 {emailResult.falhados > 0 && `, ${emailResult.falhados} falhado${emailResult.falhados !== 1 ? 's' : ''}`}
                 {' '}(de {emailResult.total})
               </p>
-              {emailResult.erro && (
-                <p className="text-xs mt-1 opacity-80">Erro: {emailResult.erro.message || emailResult.erro.code || JSON.stringify(emailResult.erro)}</p>
+              {emailResult.falhados_detalhe && emailResult.falhados_detalhe.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {emailResult.falhados_detalhe.map((f, i) => (
+                    <div key={i} className="text-xs bg-yellow-100 rounded px-2 py-1.5">
+                      <span className="font-semibold">{f.nome}</span> — {f.email}
+                      <span className="block opacity-70 mt-0.5">Erro: {f.erro}</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
