@@ -138,4 +138,6 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 uploads/
-.claude/worktrees/
+
+# Claude AI files
+.claude/

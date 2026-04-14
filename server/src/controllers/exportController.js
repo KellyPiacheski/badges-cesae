@@ -171,8 +171,8 @@ async function exportPdf(res, eventos, enrollments) {
         <td>${enr.event?.title || "—"}</td>
         <td>${enr.status || "—"}</td>
         <td>${enr.evaluation_result || "—"}</td>
-        <td class="num">${enr.badge ? "" : "—"}</td>
-        <td class="num">${enr.certificate ? "" : "—"}</td>
+        <td class="num">${enr.badge ? "Sim" : "Não"}</td>
+        <td class="num">${enr.certificate ? "Sim" : "Não"}</td>
       </tr>`
     )
     .join("");
