@@ -105,7 +105,8 @@ function emptyForm() {
 }
 
 export default function TemplatesPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [templates, setTemplates] = useState<BadgeTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -208,12 +209,14 @@ export default function TemplatesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Templates de Badges</h1>
           <p className="text-gray-500 text-sm mt-1">Gere os templates de cores para geração de badges</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="bg-blue-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors"
-        >
-          Novo template
-        </button>
+        {isAdmin && (
+          <button
+            onClick={openCreate}
+            className="bg-blue-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors"
+          >
+            Novo template
+          </button>
+        )}
       </div>
 
       {error && (
@@ -274,18 +277,22 @@ export default function TemplatesPage() {
                 >
                   Preview
                 </button>
-                <button
-                  onClick={() => openEdit(tpl)}
-                  className="flex-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => setDeleteId(tpl.id)}
-                  className="flex-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  Eliminar
-                </button>
+                {isAdmin && (
+                  <>
+                    <button
+                      onClick={() => openEdit(tpl)}
+                      className="flex-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(tpl.id)}
+                      className="flex-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Eliminar
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}

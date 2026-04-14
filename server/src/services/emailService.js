@@ -23,10 +23,19 @@ function createTransporter() {
 }
 
 // Deriva o path local do badge a partir da image_url guardada na BD.
-// Funciona quer a URL seja relativa (/uploads/badges/...) ou absoluta (https://host/uploads/badges/...).
+// Retorna o path local se o ficheiro existir localmente.
+// Suporta URLs relativas (/uploads/...), URLs localhost e paths absolutos.
+// Retorna null apenas para URLs remotas reais (R2/CDN).
 function getBadgeLocalPath(imageUrl) {
   if (!imageUrl) return null;
-  const filename = path.basename(imageUrl);
+
+  // URL remota real (R2/CDN) — não é localhost
+  if (imageUrl.startsWith("http") && !imageUrl.includes("localhost") && !imageUrl.includes("127.0.0.1")) {
+    return null;
+  }
+
+  // Extrair apenas o nome do ficheiro (funciona para paths relativos e URLs localhost)
+  const filename = path.basename(imageUrl.split("?")[0]);
   const localPath = path.join(__dirname, "../../uploads/badges", filename);
   return fs.existsSync(localPath) ? localPath : null;
 }
@@ -72,6 +81,7 @@ function buildCertificateTemplate({
   eventTitle,
   validationCode,
   hasBadge,
+  badgeRemoteUrl,
   pdfUrl,
 }) {
   const SERVER_URL = process.env.SERVER_URL || "";
@@ -118,7 +128,7 @@ function buildCertificateTemplate({
                     podes validá-lo online, descarregar o PDF ou partilhar no LinkedIn.
                   </p>
 
-                  <!-- Badge PNG (inline via CID — visível mesmo sem carregar imagens externas) -->
+                  <!-- Badge PNG — inline CID (local) ou URL remota (R2) -->
                   ${hasBadge ? `
                   <div style="text-align: center; margin: 0 0 28px 0;">
                     <img
@@ -131,6 +141,15 @@ function buildCertificateTemplate({
                     <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0;">
                       O badge também está em anexo para guardares.
                     </p>
+                  </div>` : badgeRemoteUrl ? `
+                  <div style="text-align: center; margin: 0 0 28px 0;">
+                    <img
+                      src="${badgeRemoteUrl}"
+                      alt="Badge ${eventTitle}"
+                      width="200"
+                      height="200"
+                      style="width: 200px; height: 200px; border-radius: 16px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); display: block; margin: 0 auto;"
+                    />
                   </div>` : ""}
 
                   <!-- Botão — Validar certificado online -->
@@ -202,6 +221,14 @@ async function sendCertificateEmail({
 }) {
   const badgeLocalPath = getBadgeLocalPath(badgeUrl);
   const hasBadge = !!badgeLocalPath;
+  // Badge remoto (R2): URL completa para incluir diretamente no HTML
+  const badgeRemoteUrl = (!hasBadge && badgeUrl && badgeUrl.startsWith("http")) ? badgeUrl : null;
+
+  // Garantir que o PDF URL e absoluto no email
+  const SERVER_URL = process.env.SERVER_URL || "";
+  const resolvedPdfUrl = pdfUrl
+    ? (pdfUrl.startsWith("http") ? pdfUrl : `${SERVER_URL}${pdfUrl}`)
+    : null;
 
   const subject = `O teu certificado — ${eventTitle} | CESAE Digital`;
   const html = buildCertificateTemplate({
@@ -209,7 +236,8 @@ async function sendCertificateEmail({
     eventTitle,
     validationCode,
     hasBadge,
-    pdfUrl,
+    badgeRemoteUrl,
+    pdfUrl: resolvedPdfUrl,
   });
 
   const attachments = [];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { apiFetch } from "@/services/api";
 import * as XLSX from "xlsx";
@@ -45,7 +46,8 @@ function getCurrentUserId(token: string): number | null {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"formadores" | "formandos">(
     "formadores"
   );
@@ -92,6 +94,13 @@ export default function UsersPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentUserId = token ? getCurrentUserId(token) : null;
+
+  // Redirecionar formadores
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      router.replace('/admin/events');
+    }
+  }, [user, router]);
 
   // ── Load data ───────────────────────────────────────────────────────────────
 

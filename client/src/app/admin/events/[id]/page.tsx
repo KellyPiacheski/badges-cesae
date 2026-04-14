@@ -102,7 +102,8 @@ function parseCSV(text: string): Array<Record<string, string>> {
 }
 
 export default function EventDetailPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const params = useParams();
   const router = useRouter();
   const [event, setEvent] = useState<EventDetail | null>(null);
@@ -137,6 +138,11 @@ export default function EventDetailPage() {
   const [logsError, setLogsError] = useState('');
   const [showLogs, setShowLogs] = useState(false);
   const [resendingLogId, setResendingLogId] = useState<number | null>(null);
+  const [resendLogResult, setResendLogResult] = useState<{ id: number; success: boolean; message: string } | null>(null);
+
+  // Emissão individual de certificado
+  const [emittingCertId, setEmittingCertId] = useState<number | null>(null);
+  const [certResults, setCertResults] = useState<Record<number, { success: boolean; message: string; code?: string }>>({});
 
   useEffect(() => {
     if (token && params.id) {
@@ -310,6 +316,29 @@ export default function EventDetailPage() {
     return 'Erro desconhecido ao enviar o email';
   }
 
+  async function handleEmitCertificate(enrollmentId: number) {
+    setEmittingCertId(enrollmentId);
+    try {
+      const data = await apiFetch('/certificates', {
+        method: 'POST',
+        token: token!,
+        body: JSON.stringify({ enrollment_id: enrollmentId }),
+      });
+      setCertResults(prev => ({
+        ...prev,
+        [enrollmentId]: { success: true, message: 'Certificado emitido', code: data.validationCode },
+      }));
+    } catch (err: any) {
+      const alreadyExists = err.message?.toLowerCase().includes('já emitido');
+      setCertResults(prev => ({
+        ...prev,
+        [enrollmentId]: { success: false, message: alreadyExists ? 'Certificado ja emitido' : (err.message || 'Erro ao emitir') },
+      }));
+    } finally {
+      setEmittingCertId(null);
+    }
+  }
+
   async function loadEmailLogs() {
     setLogsLoading(true);
     setLogsError('');
@@ -333,11 +362,13 @@ export default function EventDetailPage() {
 
   async function handleResendLog(logId: number) {
     setResendingLogId(logId);
+    setResendLogResult(null);
     try {
       await apiFetch(`/email-logs/${logId}/resend`, { method: 'PATCH', token: token! });
+      setResendLogResult({ id: logId, success: true, message: 'Email reenviado com sucesso' });
       await loadEmailLogs();
     } catch (err: any) {
-      alert(err.message || 'Erro ao reenviar email');
+      setResendLogResult({ id: logId, success: false, message: err.message || 'Erro ao reenviar email' });
     } finally {
       setResendingLogId(null);
     }
@@ -394,12 +425,14 @@ export default function EventDetailPage() {
             )}
           </div>
         </div>
-        <Link
-          href={`/admin/events/${event.id}/edit`}
-          className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-        >
-          Editar
-        </Link>
+        {isAdmin && (
+          <Link
+            href={`/admin/events/${event.id}/edit`}
+            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            Editar
+          </Link>
+        )}
       </div>
 
       {/* Info Cards */}
@@ -434,7 +467,7 @@ export default function EventDetailPage() {
       )}
 
       {/* Emit & Email Actions */}
-      {event.enrollments.length > 0 && (
+      {isAdmin && event.enrollments.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -535,11 +568,6 @@ export default function EventDetailPage() {
               {emailError}
             </div>
           )}
-          {resendResult && (
-            <div className={`border rounded-lg px-4 py-3 text-sm mt-2 ${resendResult.success ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
-              {resendResult.message}
-            </div>
-          )}
         </div>
       )}
 
@@ -551,20 +579,24 @@ export default function EventDetailPage() {
           </h2>
           <div className="flex items-center gap-2">
             {/* Botão Importar CSV */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.txt"
-              onChange={handleCSVImport}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
-            >
-              {importing ? 'A importar...' : ' Importar CSV'}
-            </button>
+            {isAdmin && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleCSVImport}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing}
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors disabled:opacity-50"
+                >
+                  {importing ? 'A importar...' : ' Importar CSV'}
+                </button>
+              </>
+            )}
             {/* Botão Adicionar */}
             <button
               onClick={() => setShowAddForm(!showAddForm)}
@@ -760,21 +792,46 @@ export default function EventDetailPage() {
                     </>
                   )}
                   <td className="px-6 py-3 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <button
-                        onClick={() => handleResendEmail(enrollment.id)}
-                        disabled={resendingId === enrollment.id}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-40"
-                        title="Reenviar email do certificado"
-                      >
-                        {resendingId === enrollment.id ? 'A enviar...' : 'Reenviar email'}
-                      </button>
-                      <button
-                        onClick={() => handleRemoveParticipant(enrollment.id, enrollment.participant.name)}
-                        className="text-xs text-red-500 hover:text-red-700 font-medium"
-                      >
-                        Remover
-                      </button>
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-3">
+                        {isAdmin && (event.type === 'evento' ? enrollment.status === 'presente' : enrollment.evaluation_result === 'aprovado') && (
+                          <button
+                            onClick={() => handleEmitCertificate(enrollment.id)}
+                            disabled={emittingCertId === enrollment.id}
+                            className="text-xs text-purple-600 hover:text-purple-800 font-medium disabled:opacity-40"
+                            title="Emitir certificado individual"
+                          >
+                            {emittingCertId === enrollment.id ? 'A emitir...' : 'Emitir certificado'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleResendEmail(enrollment.id)}
+                          disabled={resendingId === enrollment.id}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-40"
+                          title="Reenviar email do certificado"
+                        >
+                          {resendingId === enrollment.id ? 'A enviar...' : 'Reenviar email'}
+                        </button>
+                        {resendResult?.enrollmentId === enrollment.id && (
+                          <span className={`text-xs font-medium ${resendResult.success ? 'text-green-600' : 'text-red-500'}`}>
+                            {resendResult.success ? 'Enviado!' : 'Erro'}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleRemoveParticipant(enrollment.id, enrollment.participant.name)}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                      {certResults[enrollment.id] && (
+                        <span className={`text-xs ${certResults[enrollment.id].success ? 'text-green-600' : 'text-amber-600'}`}>
+                          {certResults[enrollment.id].message}
+                          {certResults[enrollment.id].code && (
+                            <span className="ml-1 font-mono text-gray-500">({certResults[enrollment.id].code})</span>
+                          )}
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -800,7 +857,7 @@ export default function EventDetailPage() {
       </div>
 
       {/* Email Logs Section */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-6">
+      {isAdmin && <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-6">
         <button
           onClick={handleToggleLogs}
           className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors"
@@ -833,6 +890,16 @@ export default function EventDetailPage() {
                 {logsLoading ? 'A carregar...' : 'Atualizar'}
               </button>
             </div>
+
+            {resendLogResult && (
+              <div className={`mx-6 mt-4 px-4 py-3 rounded-lg text-sm border ${
+                resendLogResult.success
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {resendLogResult.message}
+              </div>
+            )}
 
             {logsError && (
               <div className="mx-6 my-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -910,7 +977,7 @@ export default function EventDetailPage() {
             )}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

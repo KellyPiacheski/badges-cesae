@@ -15,11 +15,10 @@ router.post(
   sendBulkEmails,
 );
 
-// POST /api/enrollments/:enrollmentId/resend-email — Reenviar email individual (admin)
+// POST /api/enrollments/:enrollmentId/resend-email — Reenviar email individual (admin e formador)
 router.post(
   "/enrollments/:enrollmentId/resend-email",
   authMiddleware,
-  roleGuard("admin"),
   resendEmail,
 );
 

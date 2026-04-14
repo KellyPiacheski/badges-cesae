@@ -21,7 +21,8 @@ interface EventItem {
 }
 
 export default function EventsListPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,12 +73,14 @@ export default function EventsListPage() {
           <h1 className="text-2xl font-bold text-gray-900">Eventos</h1>
           <p className="text-gray-500 text-sm mt-1">Gestão de eventos e cursos</p>
         </div>
-        <Link
-          href="/admin/events/new"
-          className="bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors"
-        >
-          + Criar Evento
-        </Link>
+        {isAdmin && (
+          <Link
+            href="/admin/events/new"
+            className="bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors"
+          >
+            + Criar Evento
+          </Link>
+        )}
       </div>
 
       {/* Filtros */}
@@ -183,18 +186,22 @@ export default function EventsListPage() {
                       >
                         Ver
                       </Link>
-                      <Link
-                        href={`/admin/events/${event.id}/edit`}
-                        className="text-sm text-gray-500 hover:text-gray-700 font-medium"
-                      >
-                        Editar
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(event.id, event.title)}
-                        className="text-sm text-red-500 hover:text-red-700 font-medium"
-                      >
-                        Eliminar
-                      </button>
+                      {isAdmin && (
+                        <>
+                          <Link
+                            href={`/admin/events/${event.id}/edit`}
+                            className="text-sm text-gray-500 hover:text-gray-700 font-medium"
+                          >
+                            Editar
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(event.id, event.title)}
+                            className="text-sm text-red-500 hover:text-red-700 font-medium"
+                          >
+                            Eliminar
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
