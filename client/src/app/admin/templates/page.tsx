@@ -35,11 +35,14 @@ const DEFAULT_CONFIG: DesignConfig = {
   globeColor: "#A569BD",
 };
 
+// Apenas as 3 cores usadas pelo gerador drawLucasBadge
+const ACTIVE_COLOR_KEYS: (keyof DesignConfig)[] = ["accentColor", "secondaryColor", "globeColor"];
+
 const COLOR_LABELS: Record<keyof DesignConfig, string> = {
   backgroundColor: "Fundo",
   primaryColor: "Primária",
-  secondaryColor: "Secundária",
-  accentColor: "Destaque (fundo badge)",
+  secondaryColor: "Linha separadora",
+  accentColor: "Fundo do badge",
   textColor: "Texto",
   lightTextColor: "Texto claro",
   borderColor: "Borda",
@@ -352,17 +355,25 @@ export default function TemplatesPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">Cores</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {(Object.keys(COLOR_LABELS) as (keyof DesignConfig)[]).map((key) => (
-                    <div key={key} className="flex items-center gap-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Cores</label>
+                <p className="text-xs text-gray-400 mb-3">O texto do badge é sempre branco.</p>
+                <div className="flex flex-col gap-3">
+                  {ACTIVE_COLOR_KEYS.map((key) => (
+                    <div key={key} className="flex items-center gap-3">
                       <input
                         type="color"
                         value={form.design_config[key]}
                         onChange={(e) => setColor(key, e.target.value)}
-                        className="w-8 h-8 rounded border border-gray-300 cursor-pointer p-0.5 bg-white"
+                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer p-0.5 bg-white"
                       />
-                      <span className="text-xs text-gray-600">{COLOR_LABELS[key]}</span>
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">{COLOR_LABELS[key]}</p>
+                        <p className="text-xs text-gray-400">
+                          {key === 'accentColor' && 'Cor de fundo do badge'}
+                          {key === 'secondaryColor' && 'Linha horizontal sob "Verificado"'}
+                          {key === 'globeColor' && 'Contorno das linhas do globo'}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>

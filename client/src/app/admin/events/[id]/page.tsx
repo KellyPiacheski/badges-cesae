@@ -527,7 +527,7 @@ export default function EventDetailPage() {
                     A emitir...
                   </>
                 ) : (
-                  <> Emitir badges</>
+                  <> Emitir badges e certificados</>
                 )}
               </button>
               <button
