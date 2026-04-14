@@ -57,7 +57,7 @@ async function sendBulkEmails(req, res) {
     // 4. Enviar email para cada certificado
     let enviados = 0;
     let falhados = 0;
-    let lastError = null;
+    const falhadosList = [];
 
     for (const certificate of certificates) {
       try {
@@ -67,6 +67,7 @@ async function sendBulkEmails(req, res) {
 
         if (!participant) {
           falhados++;
+          falhadosList.push({ nome: "Desconhecido", email: "—", erro: "Participante não encontrado" });
           continue;
         }
 
@@ -91,17 +92,16 @@ async function sendBulkEmails(req, res) {
           await certificate.update({ email_sent: true, sent_at: new Date() });
           enviados++;
         } else {
-          lastError = result.detail || { message: result.error };
           await log.update({ status: "failed", error_message: result.error });
           falhados++;
+          falhadosList.push({ nome: participant.name, email: participant.email, erro: result.error || "Erro desconhecido" });
         }
       } catch (err) {
-        console.error(
-          `Erro ao enviar email para certificado ${certificate.id}:`,
-          err,
-        );
-        lastError = { message: err.message };
+        console.error(`Erro ao enviar email para certificado ${certificate.id}:`, err);
+        const enrollment = enrollmentMap.get(certificate.enrollment_id);
+        const participant = enrollment?.participant;
         falhados++;
+        falhadosList.push({ nome: participant?.name || "Desconhecido", email: participant?.email || "—", erro: err.message });
       }
     }
 
@@ -111,12 +111,8 @@ async function sendBulkEmails(req, res) {
       enviados,
       falhados,
       total: certificates.length,
+      ...(falhadosList.length > 0 && { falhados_detalhe: falhadosList }),
     };
-
-    // Incluir detalhe do erro quando todos falharam — útil para diagnóstico
-    if (enviados === 0 && lastError) {
-      responseBody.erro = lastError;
-    }
 
     return res.status(200).json(responseBody);
   };

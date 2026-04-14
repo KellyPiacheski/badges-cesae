@@ -40,6 +40,15 @@ interface EventDetail {
   enrollments: EnrollmentItem[];
 }
 
+interface EmailLog {
+  id: number;
+  certificate_id: number;
+  recipient_email: string;
+  status: 'pending' | 'sent' | 'failed';
+  sent_at: string | null;
+  error_message: string | null;
+}
+
 interface EmitResult {
   message: string;
   total: number;
@@ -121,6 +130,13 @@ export default function EventDetailPage() {
   const [emailError, setEmailError] = useState('');
   const [resendingId, setResendingId] = useState<number | null>(null);
   const [resendResult, setResendResult] = useState<{ enrollmentId: number; success: boolean; message: string } | null>(null);
+
+  // Logs de email
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState('');
+  const [showLogs, setShowLogs] = useState(false);
+  const [resendingLogId, setResendingLogId] = useState<number | null>(null);
 
   useEffect(() => {
     if (token && params.id) {
@@ -269,6 +285,61 @@ export default function EventDetailPage() {
       setResendResult({ enrollmentId, success: false, message: err.message || 'Erro ao reenviar email' });
     } finally {
       setResendingId(null);
+    }
+  }
+
+  function friendlyEmailError(error: string | null): string {
+    if (!error) return '';
+    const e = error.toLowerCase();
+    if (e.includes('invalid') && e.includes('email') || e.includes('recipient address rejected') || e.includes('user unknown') || e.includes('no such user'))
+      return 'Endereco de email invalido ou inexistente';
+    if (e.includes('econnrefused') || e.includes('enotfound') || e.includes('etimedout') || e.includes('network'))
+      return 'Falha de ligacao — sem acesso ao servidor de email';
+    if (e.includes('535') || e.includes('authentication') || e.includes('username and password') || e.includes('auth'))
+      return 'Credenciais de email incorretas — verificar configuracao';
+    if (e.includes('550') || e.includes('mailbox') && e.includes('full') || e.includes('quota'))
+      return 'Caixa de correio do destinatario cheia';
+    if (e.includes('421') || e.includes('too many') || e.includes('rate limit'))
+      return 'Demasiados emails enviados — limite do servidor atingido';
+    if (e.includes('starttls') || e.includes('ssl') || e.includes('tls'))
+      return 'Erro de seguranca na ligacao ao servidor de email';
+    if (e.includes('spam') || e.includes('blocked') || e.includes('blacklist'))
+      return 'Email bloqueado pelo servidor de destino (possivel spam)';
+    if (e.includes('certificate') || e.includes('pdf') || e.includes('badge') || e.includes('file'))
+      return 'Erro ao anexar o certificado ou badge ao email';
+    return 'Erro desconhecido ao enviar o email';
+  }
+
+  async function loadEmailLogs() {
+    setLogsLoading(true);
+    setLogsError('');
+    try {
+      const data = await apiFetch(`/events/${params.id}/email-logs`, { token: token! });
+      setEmailLogs(data);
+    } catch (err: any) {
+      setLogsError(err.message || 'Erro ao carregar logs');
+    } finally {
+      setLogsLoading(false);
+    }
+  }
+
+  async function handleToggleLogs() {
+    const next = !showLogs;
+    setShowLogs(next);
+    if (next && emailLogs.length === 0) {
+      await loadEmailLogs();
+    }
+  }
+
+  async function handleResendLog(logId: number) {
+    setResendingLogId(logId);
+    try {
+      await apiFetch(`/email-logs/${logId}/resend`, { method: 'PATCH', token: token! });
+      await loadEmailLogs();
+    } catch (err: any) {
+      alert(err.message || 'Erro ao reenviar email');
+    } finally {
+      setResendingLogId(null);
     }
   }
 
@@ -724,6 +795,119 @@ export default function EventDetailPage() {
             <span className="text-gray-500">
               Reprovados: <strong className="text-red-700">{event.enrollments.filter(e => e.evaluation_result === 'reprovado').length}</strong>
             </span>
+          </div>
+        )}
+      </div>
+
+      {/* Email Logs Section */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-6">
+        <button
+          onClick={handleToggleLogs}
+          className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition-colors"
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Logs de email</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Historico de envios de certificados por email</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {emailLogs.length > 0 && (
+              <span className="text-xs text-gray-400">{emailLogs.length} registos</span>
+            )}
+            <svg
+              className={`w-4 h-4 text-gray-400 transition-transform ${showLogs ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+
+        {showLogs && (
+          <div className="border-t border-gray-200">
+            <div className="flex items-center justify-end px-6 py-3 bg-gray-50 border-b border-gray-100">
+              <button
+                onClick={loadEmailLogs}
+                disabled={logsLoading}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-40"
+              >
+                {logsLoading ? 'A carregar...' : 'Atualizar'}
+              </button>
+            </div>
+
+            {logsError && (
+              <div className="mx-6 my-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                {logsError}
+              </div>
+            )}
+
+            {!logsLoading && emailLogs.length === 0 && !logsError && (
+              <div className="px-6 py-10 text-center text-sm text-gray-400">
+                Nenhum email enviado para este evento ainda.
+              </div>
+            )}
+
+            {emailLogs.length > 0 && (
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Email</th>
+                    <th className="text-center px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Data de envio</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Motivo</th>
+                    <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Acao</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {emailLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-3 text-sm text-gray-700">{log.recipient_email}</td>
+                      <td className="px-6 py-3 text-center">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${
+                          log.status === 'sent'
+                            ? 'bg-green-100 text-green-700'
+                            : log.status === 'failed'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {log.status === 'sent' ? 'Enviado' : log.status === 'failed' ? 'Falhado' : 'Pendente'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-500">
+                        {log.sent_at
+                          ? new Date(log.sent_at).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </td>
+                      <td className="px-6 py-3 max-w-xs">
+                        {log.error_message ? (
+                          <div>
+                            <p className="text-xs text-red-600 font-medium">{friendlyEmailError(log.error_message)}</p>
+                            <details className="mt-0.5">
+                              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 select-none">
+                                ver detalhe tecnico
+                              </summary>
+                              <p className="text-xs text-gray-400 mt-1 break-words whitespace-pre-wrap">{log.error_message}</p>
+                            </details>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        {log.status !== 'sent' && (
+                          <button
+                            onClick={() => handleResendLog(log.id)}
+                            disabled={resendingLogId === log.id}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-40"
+                          >
+                            {resendingLogId === log.id ? 'A enviar...' : 'Reenviar'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </div>

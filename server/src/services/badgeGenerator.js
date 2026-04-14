@@ -14,240 +14,154 @@ if (!fs.existsSync(BADGES_DIR)) {
   fs.mkdirSync(BADGES_DIR, { recursive: true });
 }
 
-const SVG_TEMPLATE_PATH = path.join(
-  __dirname,
-  "../../files",
-  "badge_default.svg",
-);
 
 /**
- * Modifica o SVG padrão adicionando o título do evento com tamanho dinâmico
- *
- * @param {string} eventTitle - Título do evento/curso
- * @returns {string} - SVG modificado como string
+ * Desenha o badge no estilo do Lucas usando canvas — cores totalmente controladas pelo template
  */
-function modifySvgWithTitle(eventTitle) {
-  let svgContent = fs.readFileSync(SVG_TEMPLATE_PATH, "utf-8");
+async function drawLucasBadge(eventTitle, template = {}) {
+  const SIZE = 600;
+  const RADIUS = 40;
+  const canvas = createCanvas(SIZE, SIZE);
+  const ctx = canvas.getContext("2d");
 
-  // Calcular tamanho da fonte dinamicamente baseado no comprimento do título
-  let fontSize = 14;
-  if (eventTitle.length > 50) {
-    fontSize = 8;
-  } else if (eventTitle.length > 40) {
-    fontSize = 10;
-  } else if (eventTitle.length > 30) {
-    fontSize = 12;
-  } else if (eventTitle.length > 20) {
-    fontSize = 13;
-  }
+  // Cores do template
+  const bgColor     = template.accentColor    || "#7B2FBE";
+  const lineColor   = template.secondaryColor || "#9B59B6";
+  const globeColor  = template.globeColor     || "#A569BD";
+  const textColor   = "#FFFFFF";
 
-  // Criar elemento de texto para o SVG - posicionado onde era DEFAULT_BADGE
-  const textElement = `<text x="150" y="225" font-size="${fontSize}" font-weight="bold" fill="#FFFFFF" text-anchor="middle" font-family="Arial, sans-serif" dominant-baseline="middle">${eventTitle}</text>`;
+  // ── FUNDO COM CANTOS ARREDONDADOS ──
+  ctx.beginPath();
+  ctx.moveTo(RADIUS, 0);
+  ctx.lineTo(SIZE - RADIUS, 0);
+  ctx.quadraticCurveTo(SIZE, 0, SIZE, RADIUS);
+  ctx.lineTo(SIZE, SIZE - RADIUS);
+  ctx.quadraticCurveTo(SIZE, SIZE, SIZE - RADIUS, SIZE);
+  ctx.lineTo(RADIUS, SIZE);
+  ctx.quadraticCurveTo(0, SIZE, 0, SIZE - RADIUS);
+  ctx.lineTo(0, RADIUS);
+  ctx.quadraticCurveTo(0, 0, RADIUS, 0);
+  ctx.closePath();
+  ctx.fillStyle = bgColor;
+  ctx.fill();
 
-  // Remover o elemento de texto anterior se existir (para evitar duplicatas)
-  svgContent = svgContent.replace(/<text[^>]*>[^<]*<\/text>/g, "");
+  // Clip tudo ao rounded rect
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(RADIUS, 0);
+  ctx.lineTo(SIZE - RADIUS, 0);
+  ctx.quadraticCurveTo(SIZE, 0, SIZE, RADIUS);
+  ctx.lineTo(SIZE, SIZE - RADIUS);
+  ctx.quadraticCurveTo(SIZE, SIZE, SIZE - RADIUS, SIZE);
+  ctx.lineTo(RADIUS, SIZE);
+  ctx.quadraticCurveTo(0, SIZE, 0, SIZE - RADIUS);
+  ctx.lineTo(0, RADIUS);
+  ctx.quadraticCurveTo(0, 0, RADIUS, 0);
+  ctx.closePath();
+  ctx.clip();
 
-  // Adicionar o novo elemento de texto antes da tag de fechamento </svg>
-  svgContent = svgContent.replace("</svg>", `${textElement}</svg>`);
+  // ── LOGO CESAE (topo esquerda) ──
+  const LOGO_PATH = path.join(__dirname, "../../../client/public/cesae-logo.svg");
+  const logoAlt = path.join(__dirname, "../../public/cesae-logo.svg");
+  const logoPath = fs.existsSync(LOGO_PATH) ? LOGO_PATH : fs.existsSync(logoAlt) ? logoAlt : null;
 
-  return svgContent;
-}
-
-/**
- * Renderiza um SVG como BufferPNG usando a Canvas API com dados do badge
- *
- * @param {string} svgContent - Conteúdo SVG como string
- * @param {Object} badgeData - Dados do badge (participantName, eventTitle, date, durationHours, validationCode)
- * @param {Object} template - Template com cores customizadas
- * @returns {Promise<Buffer>} - Buffer PNG
- */
-async function renderSvgToPng(svgContent, badgeData = {}, template = {}) {
-  try {
-    const tempSvgPath = path.join(BADGES_DIR, `temp_${Date.now()}.svg`);
-    fs.writeFileSync(tempSvgPath, svgContent);
-
-    // Criar canvas maior para acomodar SVG + informações
-    const WIDTH = 800;
-    const HEIGHT = 800;
-    const canvas = createCanvas(WIDTH, HEIGHT);
-    const ctx = canvas.getContext("2d");
-
-    // ── CORES DO TEMPLATE (com fallbacks) ──
-    const colors = {
-      background: template.backgroundColor || "#FFFFFF",
-      primary: template.primaryColor || "#1B4F72",
-      accent: template.accentColor || "#8E44AD",
-      text: template.textColor || "#1C2833",
-      lightText: template.lightTextColor || "#566573",
-      border: template.borderColor || "#D4E6F1",
-    };
-
-    // Fundo branco
-    ctx.fillStyle = colors.background;
-    ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-    // ── BORDA DECORATIVA ──
-    ctx.save();
-    ctx.strokeStyle = colors.border;
-    ctx.lineWidth = 3;
-    ctx.strokeRect(20, 20, WIDTH - 40, HEIGHT - 40);
-    ctx.restore();
-
-    // Borda interior
-    ctx.save();
-    ctx.strokeStyle = colors.primary;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(30, 30, WIDTH - 60, HEIGHT - 60);
-    ctx.restore();
-
-    // ── BARRA SUPERIOR COM COR (accent) ──
-    ctx.save();
-    ctx.fillStyle = colors.accent;
-    ctx.fillRect(30, 30, WIDTH - 60, 8);
-    ctx.restore();
-
-    // ── LOGO / TÍTULO DA ORGANIZAÇÃO ──
-    ctx.save();
-    ctx.fillStyle = colors.primary;
-    ctx.font = "bold 24px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("CESAE DIGITAL", WIDTH / 2, 90);
-    ctx.restore();
-
-    // Linha separadora
-    ctx.save();
-    ctx.strokeStyle = colors.border;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(100, 110);
-    ctx.lineTo(WIDTH - 100, 110);
-    ctx.stroke();
-    ctx.restore();
-
-    // ── TIPO DE BADGE ── (CORRIGIDO - usa azul fixo)
-    ctx.save();
-    ctx.fillStyle = "#0066CC"; // Azul fixo para manter consistência
-    ctx.font = "bold 18px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("CERTIFICADO DE CONCLUSÃO", WIDTH / 2, 145);
-    ctx.restore();
-
-    // ── SVG RENDERIZADO NO CENTRO ──
-    const SVG_SIZE = 250;
-    const SVG_X = (WIDTH - SVG_SIZE) / 2;
-    const SVG_Y = 175;
-
+  if (logoPath) {
     try {
-      const img = await loadImage(tempSvgPath);
-      ctx.drawImage(img, SVG_X, SVG_Y, SVG_SIZE, SVG_SIZE);
-    } catch (err) {
-      console.warn("Não foi possível carregar o SVG como imagem:", err.message);
-      // Desenhar um círculo placeholder se falhar
-      ctx.save();
-      ctx.fillStyle = colors.accent;
-      ctx.beginPath();
-      ctx.arc(WIDTH / 2, SVG_Y + SVG_SIZE / 2, SVG_SIZE / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      const logo = await loadImage(logoPath);
+      const logoH = 50;
+      const logoW = (logo.width / logo.height) * logoH;
+      ctx.drawImage(logo, 30, 28, logoW, logoH);
+    } catch {
+      ctx.fillStyle = textColor;
+      ctx.font = "bold 20px Arial";
+      ctx.textAlign = "left";
+      ctx.fillText("cesae digital", 30, 60);
     }
-
-    // ── NOME DO PARTICIPANTE ──
-    ctx.save();
-    ctx.fillStyle = colors.text;
-    ctx.font = "bold 28px Arial";
-    ctx.textAlign = "center";
-    let fontSize = 28;
-    const participantName = badgeData.participantName || "Participante";
-    while (
-      ctx.measureText(participantName).width > WIDTH - 120 &&
-      fontSize > 18
-    ) {
-      fontSize -= 2;
-      ctx.font = `bold ${fontSize}px Arial`;
-    }
-    ctx.fillText(participantName, WIDTH / 2, SVG_Y + SVG_SIZE + 60);
-    ctx.restore();
-
-    // ── LINHA DECORATIVA SOB O NOME ──
-    ctx.save();
-    ctx.strokeStyle = colors.accent;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(WIDTH / 2 - 80, SVG_Y + SVG_SIZE + 75);
-    ctx.lineTo(WIDTH / 2 + 80, SVG_Y + SVG_SIZE + 75);
-    ctx.stroke();
-    ctx.restore();
-
-    // ── INFORMAÇÕES DO EVENTO ──
-    ctx.save();
-    ctx.fillStyle = colors.lightText;
-    ctx.font = "13px Arial";
-    ctx.textAlign = "center";
-
-    const infoItems = [];
-    if (badgeData.date) infoItems.push(` ${badgeData.date}`);
-    if (badgeData.durationHours)
-      infoItems.push(`⏱ ${badgeData.durationHours} horas`);
-
-    let infoY = SVG_Y + SVG_SIZE + 105;
-    if (infoItems.length > 0) {
-      ctx.fillText(infoItems.join("    |    "), WIDTH / 2, infoY);
-      infoY += 25;
-    }
-    ctx.restore();
-
-    // ── LINHA SEPARADORA INFERIOR ──
-    ctx.save();
-    ctx.strokeStyle = colors.border;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(100, HEIGHT - 180);
-    ctx.lineTo(WIDTH - 100, HEIGHT - 180);
-    ctx.stroke();
-    ctx.restore();
-
-    // ── CÓDIGO DE VALIDAÇÃO ──
-    if (badgeData.validationCode) {
-      ctx.save();
-      ctx.fillStyle = colors.lightText;
-      ctx.font = "12px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("Código de validação", WIDTH / 2, HEIGHT - 140);
-
-      ctx.fillStyle = colors.primary;
-      ctx.font = "bold 16px Arial";
-      ctx.fillText(badgeData.validationCode, WIDTH / 2, HEIGHT - 118);
-      ctx.restore();
-    }
-
-    // ── FOOTER ──
-    ctx.save();
-    ctx.fillStyle = colors.lightText;
-    ctx.font = "11px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(
-      "Verificar autenticidade em badges.cesae.pt/validate",
-      WIDTH / 2,
-      HEIGHT - 75,
-    );
-    ctx.restore();
-
-    // ── MARCA D'ÁGUA CESAE ──
-    ctx.save();
-    ctx.fillStyle = colors.border;
-    ctx.font = "bold 12px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("CESAE DIGITAL © 2026", WIDTH / 2, HEIGHT - 50);
-    ctx.restore();
-
-    // Limpar arquivo temporário
-    fs.unlinkSync(tempSvgPath);
-
-    return canvas.toBuffer("image/png");
-  } catch (error) {
-    console.warn("Erro ao renderizar SVG para PNG:", error.message);
-    return null;
+  } else {
+    ctx.fillStyle = textColor;
+    ctx.font = "bold 20px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("cesae digital", 30, 60);
   }
+
+  // ── "VERIFICADO" (topo direita) ──
+  ctx.fillStyle = textColor;
+  ctx.font = "bold 22px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("Verificado", SIZE - 30, 62);
+
+  // ── LINHA SEPARADORA ──
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 96);
+  ctx.lineTo(SIZE, 96);
+  ctx.stroke();
+
+  // ── GLOBO (centro) ──
+  const CX = SIZE / 2;
+  const CY = 310;
+  const R = 140;
+
+  ctx.strokeStyle = globeColor;
+  ctx.lineWidth = 4;
+
+  // Círculo exterior
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Elipse vertical (meridiano)
+  ctx.beginPath();
+  ctx.ellipse(CX, CY, R * 0.42, R, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Linha equador
+  ctx.beginPath();
+  ctx.moveTo(CX - R, CY);
+  ctx.lineTo(CX + R, CY);
+  ctx.stroke();
+
+  // Paralelo superior
+  ctx.beginPath();
+  ctx.ellipse(CX, CY - R * 0.42, R * 0.91, R * 0.28, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Paralelo inferior
+  ctx.beginPath();
+  ctx.ellipse(CX, CY + R * 0.42, R * 0.91, R * 0.28, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // ── TÍTULO DO EVENTO (fundo) ──
+  let fontSize = 28;
+  ctx.font = `bold ${fontSize}px Arial`;
+  while (ctx.measureText(eventTitle).width > SIZE - 60 && fontSize > 14) {
+    fontSize -= 2;
+    ctx.font = `bold ${fontSize}px Arial`;
+  }
+  ctx.fillStyle = textColor;
+  ctx.textAlign = "center";
+
+  // Suporte multi-linha
+  const words = eventTitle.split(" ");
+  let line = "";
+  const lines = [];
+  for (const word of words) {
+    const test = line + (line ? " " : "") + word;
+    if (ctx.measureText(test).width > SIZE - 60 && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  lines.push(line);
+  const lineH = fontSize + 8;
+  const textStartY = SIZE - 30 - (lines.length - 1) * lineH;
+  lines.forEach((l, i) => ctx.fillText(l, CX, textStartY + i * lineH));
+
+  ctx.restore();
+  return canvas.toBuffer("image/png");
 }
 
 /**
@@ -274,40 +188,27 @@ async function generateBadge(options) {
     template = {},
   } = options;
 
-  // Para cursos (badge2), usar o SVG padrão com o título do evento
-  if (eventType === "curso") {
-    try {
-      const svgContent = modifySvgWithTitle(eventTitle);
-      const pngBuffer = await renderSvgToPng(
-        svgContent,
-        {
-          participantName,
-          eventTitle,
-          date,
-          durationHours,
-          validationCode,
-        },
-        template,
-      ); // Passa o template para usar as cores
+  // Usar sempre o design do Lucas com cores do template
+  try {
+    const pngBuffer = await drawLucasBadge(eventTitle, template);
 
-      if (pngBuffer) {
-        const filename = `badge_${validationCode || Date.now()}.png`;
-        let url;
-        if (isR2Configured()) {
-          url = await uploadToR2(pngBuffer, `badges/${filename}`, "image/png");
-        } else {
-          const filepath = path.join(BADGES_DIR, filename);
-          fs.writeFileSync(filepath, pngBuffer);
-          url = `${process.env.SERVER_URL || ""}/uploads/badges/${filename}`;
-        }
-        return { filename, url };
+    if (pngBuffer) {
+      const filename = `badge_${validationCode || Date.now()}.png`;
+      let url;
+      if (isR2Configured()) {
+        url = await uploadToR2(pngBuffer, `badges/${filename}`, "image/png");
+      } else {
+        const filepath = path.join(BADGES_DIR, filename);
+        fs.writeFileSync(filepath, pngBuffer);
+        url = `${process.env.SERVER_URL || ""}/uploads/badges/${filename}`;
       }
-    } catch (error) {
-      console.warn("Erro ao gerar badge SVG:", error.message);
-      // Fallback para o método Canvas original
+      return { filename, url };
     }
+  } catch (error) {
+    console.warn("Erro ao gerar badge, a usar fallback canvas:", error.message);
   }
 
+  // Fallback canvas (caso falhe)
   // Configuração do canvas (badge quadrado 800x800)
   const WIDTH = template.width || 800;
   const HEIGHT = template.height || 800;
