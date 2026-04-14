@@ -63,15 +63,27 @@ export default function ValidateClient({ code }: { code: string }) {
   }
 
   function openLinkedInModal() {
-    navigator.clipboard.writeText(getSuggestedText()).catch(() => {});
-    setCopied(true);
     setShowLinkedIn(true);
   }
 
   function openLinkedIn() {
-    navigator.clipboard.writeText(getSuggestedText()).catch(() => {});
-    const url = `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(pageUrl)}`;
+    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(pageUrl)}`;
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function openLinkedInProfile() {
+    if (!certificate) return;
+    const issued = new Date(certificate.issuedAt);
+    const params = new URLSearchParams({
+      startTask: "CERTIFICATION_NAME",
+      name: certificate.eventTitle,
+      organizationName: "CESAE Digital",
+      issueYear: String(issued.getFullYear()),
+      issueMonth: String(issued.getMonth() + 1),
+      certUrl: pageUrl,
+      certId: code,
+    });
+    window.open(`https://www.linkedin.com/profile/add?${params.toString()}`, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -236,11 +248,30 @@ export default function ValidateClient({ code }: { code: string }) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-4">
-                <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <p className="text-xs text-green-700 font-medium">Texto copiado! Abre o LinkedIn e cola na publicação.</p>
+              {copied && (
+                <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-4">
+                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-xs text-green-700 font-medium">Texto copiado! Cola na publicação do LinkedIn.</p>
+                </div>
+              )}
+
+              {/* Adicionar ao perfil — destaque */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3">
+                <p className="text-xs font-semibold text-blue-900 mb-1">Adicionar às Certificações do perfil</p>
+                <p className="text-xs text-blue-700 mb-2">
+                  Adiciona este certificado diretamente à secção "Licenças e Certificações" do teu perfil LinkedIn.
+                </p>
+                <button
+                  onClick={openLinkedInProfile}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-[#0077B5] hover:bg-[#006097] rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                  </svg>
+                  Adicionar ao Perfil LinkedIn
+                </button>
               </div>
 
               <div className="flex gap-3">
@@ -257,7 +288,7 @@ export default function ValidateClient({ code }: { code: string }) {
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                   </svg>
-                  Abrir LinkedIn
+                  Partilhar publicação
                 </button>
               </div>
             </div>

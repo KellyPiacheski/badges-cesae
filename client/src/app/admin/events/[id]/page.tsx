@@ -115,6 +115,11 @@ export default function EventDetailPage() {
   const [newParticipant, setNewParticipant] = useState({ name: '', email: '', phone: '', organization: '' });
   const [addError, setAddError] = useState('');
 
+  // Autocomplete de participantes existentes
+  const [suggestions, setSuggestions] = useState<{ id: number; name: string; email: string; phone?: string; organization?: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Importação CSV
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -205,11 +210,38 @@ export default function EventDetailPage() {
         body: JSON.stringify(newParticipant),
       });
       setNewParticipant({ name: '', email: '', phone: '', organization: '' });
+      setSuggestions([]);
       setShowAddForm(false);
       loadEvent();
     } catch (err: any) {
       setAddError(err.message);
     }
+  }
+
+  function handleSearchChange(value: string) {
+    setNewParticipant(p => ({ ...p, name: value }));
+    setShowSuggestions(true);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (value.length < 2) { setSuggestions([]); return; }
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const results = await apiFetch(`/participants/search?q=${encodeURIComponent(value)}`, { token: token! });
+        setSuggestions(results);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 250);
+  }
+
+  function handleSelectSuggestion(p: { id: number; name: string; email: string; phone?: string; organization?: string }) {
+    setNewParticipant({
+      name: p.name,
+      email: p.email,
+      phone: p.phone || '',
+      organization: p.organization || '',
+    });
+    setSuggestions([]);
+    setShowSuggestions(false);
   }
 
   async function handleCSVImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -658,12 +690,31 @@ export default function EventDetailPage() {
               </div>
             )}
             <div className="grid grid-cols-2 gap-3 mb-3">
-              <input
-                placeholder="Nome *"
-                value={newParticipant.name}
-                onChange={e => setNewParticipant({ ...newParticipant, name: e.target.value })}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
+              <div className="relative">
+                <input
+                  placeholder="Nome * (ou pesquisar existente)"
+                  value={newParticipant.name}
+                  onChange={e => handleSearchChange(e.target.value)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  autoComplete="off"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {suggestions.map(s => (
+                      <li
+                        key={s.id}
+                        onMouseDown={() => handleSelectSuggestion(s)}
+                        className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50"
+                      >
+                        <span className="font-medium text-gray-900">{s.name}</span>
+                        <span className="text-gray-400 ml-2 text-xs">{s.email}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <input
                 placeholder="Email *"
                 type="email"

@@ -177,9 +177,9 @@ function buildCertificateTemplate({
 
                   <!-- Botão LinkedIn -->
                   <div style="text-align: center; margin: 0 0 8px 0;">
-                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(validateUrl)}"
+                    <a href="https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(eventTitle)}&organizationName=CESAE%20Digital&certUrl=${encodeURIComponent(validateUrl)}&certId=${validationCode}"
                        style="display: inline-block; background: #0077b5; color: white; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">
-                       Partilhar no LinkedIn
+                       Adicionar ao Perfil LinkedIn
                     </a>
                   </div>
                   <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 10px 0 0 0;">

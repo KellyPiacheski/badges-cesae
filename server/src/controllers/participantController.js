@@ -2,6 +2,31 @@
 // CRUD global de participantes (formandos) — independente de eventos
 
 const { Participant } = require("../models");
+const { Op } = require("sequelize");
+
+// GET /api/participants/search?q=... — busca por nome ou email (máx. 10 resultados)
+async function searchParticipants(req, res) {
+  try {
+    const q = (req.query.q || "").trim();
+    if (q.length < 2) return res.status(200).json([]);
+
+    const participants = await Participant.findAll({
+      where: {
+        [Op.or]: [
+          { name: { [Op.iLike]: `%${q}%` } },
+          { email: { [Op.iLike]: `%${q}%` } },
+        ],
+      },
+      order: [["name", "ASC"]],
+      limit: 10,
+    });
+
+    return res.status(200).json(participants);
+  } catch (error) {
+    console.error("Erro ao pesquisar participantes:", error);
+    return res.status(500).json({ error: "Erro interno do servidor" });
+  }
+}
 
 // GET /api/participants
 async function listParticipants(req, res) {
@@ -148,6 +173,7 @@ async function importParticipants(req, res) {
 }
 
 module.exports = {
+  searchParticipants,
   listParticipants,
   createParticipant,
   updateParticipant,

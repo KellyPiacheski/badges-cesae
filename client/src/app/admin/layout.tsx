@@ -1,5 +1,5 @@
 // client/src/app/admin/layout.tsx
-// Layout do backoffice — sidebar + proteção de rota
+// Layout do backoffice — sidebar para admin, header para formador
 
 'use client';
 
@@ -31,17 +31,55 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isAdmin = user.role === 'admin';
 
-  const navItems = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: '' },
-    { href: '/admin/events', label: 'Eventos', icon: '' },
-    { href: '/admin/templates', label: 'Templates', icon: '' },
-    ...(isAdmin ? [{ href: '/admin/users', label: 'Utilizadores', icon: '' }] : []),
-  ];
-
   const handleLogout = () => {
     logout();
     router.push('/login');
   };
+
+  // ── Layout formador — header simples, sem sidebar ──────────────────────────
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div>
+              <span className="text-base font-bold text-blue-900">Badges</span>
+              <span className="text-gray-300 mx-2">·</span>
+              <span className="text-sm text-gray-500">CESAE Digital</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center text-blue-900 text-xs font-bold">
+                {user.email[0].toUpperCase()}
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900 leading-none">{user.email}</p>
+                <p className="text-xs text-gray-400 capitalize mt-0.5">{user.role}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              Terminar sessão
+            </button>
+          </div>
+        </header>
+        <main className="flex-1 p-8">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  // ── Layout admin — sidebar completa ────────────────────────────────────────
+  const navItems = [
+    { href: '/admin/dashboard', label: 'Dashboard', icon: '' },
+    { href: '/admin/events', label: 'Eventos', icon: '' },
+    { href: '/admin/templates', label: 'Templates', icon: '' },
+    { href: '/admin/users', label: 'Utilizadores', icon: '' },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

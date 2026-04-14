@@ -4,6 +4,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   BarChart,
   Bar,
@@ -82,6 +83,7 @@ function RateCard({ label, value }: { label: string; value: number }) {
 
 export default function DashboardPage() {
   const { token, user } = useAuth();
+  const router = useRouter();
   const isAdmin = user?.role === 'admin';
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,6 +95,12 @@ export default function DashboardPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (user && user.role !== 'admin') {
+      router.replace('/admin/events');
+    }
+  }, [user, router]);
 
   useEffect(() => {
     if (!token) return;

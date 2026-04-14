@@ -6,6 +6,7 @@ const router = express.Router();
 const { authMiddleware } = require("../middleware/auth");
 const { roleGuard } = require("../middleware/roleGuard");
 const {
+  searchParticipants,
   listParticipants,
   createParticipant,
   updateParticipant,
@@ -15,6 +16,7 @@ const {
 
 router.use(authMiddleware);
 
+router.get("/search", searchParticipants);
 router.get("/", listParticipants);
 router.post("/", roleGuard("admin"), createParticipant);
 router.post("/import", roleGuard("admin"), importParticipants);
