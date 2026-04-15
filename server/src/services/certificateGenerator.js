@@ -1,6 +1,8 @@
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
+const https = require("https");
+const http = require("http");
 const { uploadToR2, isR2Configured } = require("./r2");
 const sequelize = require("../config/database");
 const Enrollment = require("../models/Enrollment");
@@ -8,6 +10,22 @@ const Event = require("../models/Event");
 const Participant = require("../models/Participant");
 const Badge = require("../models/Badge");
 const Certificate = require("../models/Certificate");
+
+// Descarrega um ficheiro remoto e devolve um Buffer
+function downloadBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https") ? https : http;
+    client.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        return reject(new Error(`HTTP ${res.statusCode} ao descarregar ${url}`));
+      }
+      const chunks = [];
+      res.on("data", chunk => chunks.push(chunk));
+      res.on("end", () => resolve(Buffer.concat(chunks)));
+      res.on("error", reject);
+    }).on("error", reject);
+  });
+}
 
 // Diretório de certificados
 const CERTIFICATES_DIR = path.join(__dirname, "../../uploads/certificates");
@@ -34,17 +52,25 @@ async function generateCertificate(enrollmentId) {
       return { success: false, error: "Event ou Participant não encontrado" };
     }
 
-    // 2. Badge base64
+    // 2. Badge base64 — suporta ficheiro local e URL remota (R2)
     let badgeBase64 = "";
     if (badge && badge.image_url) {
-      const badgePath = path.join(
-        __dirname,
-        "../../uploads/badges",
-        path.basename(badge.image_url),
-      );
-      if (fs.existsSync(badgePath)) {
-        const badgeBuffer = fs.readFileSync(badgePath);
-        badgeBase64 = `data:image/png;base64,${badgeBuffer.toString("base64")}`;
+      try {
+        const imageUrl = badge.image_url;
+        if (imageUrl.startsWith("http") && !imageUrl.includes("localhost") && !imageUrl.includes("127.0.0.1")) {
+          // Badge remoto (R2) — descarregar para buffer
+          const badgeBuffer = await downloadBuffer(imageUrl);
+          badgeBase64 = `data:image/png;base64,${badgeBuffer.toString("base64")}`;
+        } else {
+          // Badge local
+          const badgePath = path.join(__dirname, "../../uploads/badges", path.basename(imageUrl));
+          if (fs.existsSync(badgePath)) {
+            const badgeBuffer = fs.readFileSync(badgePath);
+            badgeBase64 = `data:image/png;base64,${badgeBuffer.toString("base64")}`;
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao carregar badge para PDF:", err.message);
       }
     }
 
