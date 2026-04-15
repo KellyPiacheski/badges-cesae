@@ -4,8 +4,26 @@
 const { Resend } = require("resend");
 const path = require("path");
 const fs = require("fs");
+const https = require("https");
+const http = require("http");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Descarrega um ficheiro de uma URL remota e devolve um Buffer
+function downloadBuffer(url) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https") ? https : http;
+    client.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        return reject(new Error(`HTTP ${res.statusCode} ao descarregar ${url}`));
+      }
+      const chunks = [];
+      res.on("data", chunk => chunks.push(chunk));
+      res.on("end", () => resolve(Buffer.concat(chunks)));
+      res.on("error", reject);
+    }).on("error", reject);
+  });
+}
 
 // Deriva o path local do badge a partir da image_url guardada na BD.
 // Retorna o path local se o ficheiro existir localmente.
@@ -30,12 +48,12 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
   try {
     const FROM = process.env.EMAIL_FROM || "CESAE Digital <noreply@badges-cesae.lol>";
 
-    // Converter attachments do formato nodemailer para o formato Resend
+    // Converter attachments: suporta path local (Buffer via readFileSync) e content (Buffer direto)
     const resendAttachments = attachments
-      .filter(a => a.path && a.filename)
+      .filter(a => a.filename && (a.path || a.content))
       .map(a => ({
         filename: a.filename,
-        content: fs.readFileSync(a.path),
+        content: a.content || fs.readFileSync(a.path),
       }));
 
     const { data, error } = await resend.emails.send({
@@ -60,14 +78,12 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
 }
 
 // Template HTML do certificado.
-// Quando hasBadge é true, o corpo referencia a imagem via cid:badge-image
-// (o anexo inline garante que é mostrada mesmo com imagens externas bloqueadas).
+// badgeBase64: string base64 da imagem do badge (data URI), ou null
 function buildCertificateTemplate({
   participantName,
   eventTitle,
   validationCode,
-  hasBadge,
-  badgeRemoteUrl,
+  badgeBase64,
   pdfUrl,
 }) {
   const SERVER_URL = process.env.SERVER_URL || "";
@@ -114,11 +130,11 @@ function buildCertificateTemplate({
                     podes validá-lo online, descarregar o PDF ou partilhar no LinkedIn.
                   </p>
 
-                  <!-- Badge PNG — inline CID (local) ou URL remota (R2) -->
-                  ${hasBadge ? `
+                  <!-- Badge PNG — base64 embutido diretamente no HTML -->
+                  ${badgeBase64 ? `
                   <div style="text-align: center; margin: 0 0 28px 0;">
                     <img
-                      src="cid:badge-image"
+                      src="${badgeBase64}"
                       alt="Badge ${eventTitle}"
                       width="200"
                       height="200"
@@ -127,15 +143,6 @@ function buildCertificateTemplate({
                     <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0;">
                       O badge também está em anexo para guardares.
                     </p>
-                  </div>` : badgeRemoteUrl ? `
-                  <div style="text-align: center; margin: 0 0 28px 0;">
-                    <img
-                      src="${badgeRemoteUrl}"
-                      alt="Badge ${eventTitle}"
-                      width="200"
-                      height="200"
-                      style="width: 200px; height: 200px; border-radius: 16px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); display: block; margin: 0 auto;"
-                    />
                   </div>` : ""}
 
                   <!-- Botão — Validar certificado online -->
@@ -207,13 +214,34 @@ async function sendCertificateEmail({
 }) {
   const badgeLocalPath = getBadgeLocalPath(badgeUrl);
   const hasBadge = !!badgeLocalPath;
-  // Badge remoto (R2): URL completa para incluir diretamente no HTML
-  const badgeRemoteUrl = (!hasBadge && badgeUrl && badgeUrl.startsWith("http")) ? badgeUrl : null;
-
-  // Garantir que o PDF URL e absoluto no email
+  // Garantir que o PDF URL é absoluto no email
   const SERVER_URL = process.env.SERVER_URL || "";
   const resolvedPdfUrl = pdfUrl
     ? (pdfUrl.startsWith("http") ? pdfUrl : `${SERVER_URL}${pdfUrl}`)
+    : null;
+
+  // Tentar obter o badge como Buffer (local ou remoto)
+  let badgeBuffer = null;
+  let badgeFilename = null;
+  const safeName = eventTitle.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+
+  if (hasBadge) {
+    // Ficheiro local
+    badgeBuffer = fs.readFileSync(badgeLocalPath);
+    badgeFilename = `badge-${safeName}.png`;
+  } else if (badgeUrl && badgeUrl.startsWith("http")) {
+    // Badge remoto (R2) — descarregar para Buffer
+    try {
+      badgeBuffer = await downloadBuffer(badgeUrl);
+      badgeFilename = `badge-${safeName}.png`;
+    } catch (err) {
+      console.error("Não foi possível descarregar o badge remoto:", err.message);
+    }
+  }
+
+  // Converter badge para base64 — embutido diretamente no HTML (não bloqueado por email clients)
+  const badgeBase64 = badgeBuffer
+    ? `data:image/png;base64,${badgeBuffer.toString("base64")}`
     : null;
 
   const subject = `O teu certificado — ${eventTitle} | CESAE Digital`;
@@ -221,25 +249,16 @@ async function sendCertificateEmail({
     participantName,
     eventTitle,
     validationCode,
-    hasBadge,
-    badgeRemoteUrl,
+    badgeBase64,
     pdfUrl: resolvedPdfUrl,
   });
 
+  // Enviar badge também como anexo para o participante guardar
   const attachments = [];
-  if (hasBadge) {
-    const safeName = eventTitle.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-    const badgeFilename = `badge-${safeName}.png`;
-    // Inline: referenciado no HTML como cid:badge-image
+  if (badgeBuffer && badgeFilename) {
     attachments.push({
       filename: badgeFilename,
-      path: badgeLocalPath,
-      cid: "badge-image",
-    });
-    // Anexo separado para o participante guardar
-    attachments.push({
-      filename: badgeFilename,
-      path: badgeLocalPath,
+      content: badgeBuffer,
     });
   }
 
