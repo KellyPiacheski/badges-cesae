@@ -12,6 +12,7 @@ function createTransporter() {
     host: process.env.EMAIL_HOST || "smtp.gmail.com",
     port,
     secure: port === 465, // 465 → SSL, 587 → STARTTLS
+    family: 4, // forçar IPv4 — Railway bloqueia IPv6 para SMTP
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
