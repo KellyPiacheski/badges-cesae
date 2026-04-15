@@ -318,9 +318,9 @@ export default function EventDetailPage() {
         method: 'POST',
         token: token!,
       });
-      setResendResult({ enrollmentId, success: true, message: 'Email reenviado com sucesso' });
+      setResendResult({ enrollmentId, success: true, message: 'Email reenviado com sucesso para o participante.' });
     } catch (err: any) {
-      setResendResult({ enrollmentId, success: false, message: err.message || 'Erro ao reenviar email' });
+      setResendResult({ enrollmentId, success: false, message: err.message || 'Nao foi possivel reenviar o email. Verifique se o certificado foi emitido.' });
     } finally {
       setResendingId(null);
     }
@@ -358,13 +358,13 @@ export default function EventDetailPage() {
       });
       setCertResults(prev => ({
         ...prev,
-        [enrollmentId]: { success: true, message: 'Certificado emitido', code: data.validationCode },
+        [enrollmentId]: { success: true, message: 'Certificado e badge emitidos com sucesso.', code: data.validationCode },
       }));
     } catch (err: any) {
       const alreadyExists = err.message?.toLowerCase().includes('já emitido');
       setCertResults(prev => ({
         ...prev,
-        [enrollmentId]: { success: false, message: alreadyExists ? 'Certificado ja emitido' : (err.message || 'Erro ao emitir') },
+        [enrollmentId]: { success: false, message: alreadyExists ? 'Este participante ja tem certificado emitido. Use o reenvio de email se necessario.' : (err.message || 'Nao foi possivel emitir o certificado.') },
       }));
     } finally {
       setEmittingCertId(null);
@@ -554,12 +554,14 @@ export default function EventDetailPage() {
           {emitResult && (
             <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800 mb-2">
               <p className="font-medium">
-                {emitResult.badges} badge{emitResult.badges !== 1 ? 's' : ''} e {emitResult.certificates} certificado{emitResult.certificates !== 1 ? 's' : ''} emitidos (de {emitResult.total} elegíveis)
+                {emitResult.total === 0
+                  ? 'Nenhum participante elegivel para emissao neste momento.'
+                  : `${emitResult.badges} badge${emitResult.badges !== 1 ? 's' : ''} e ${emitResult.certificates} certificado${emitResult.certificates !== 1 ? 's' : ''} emitidos com sucesso (de ${emitResult.total} elegiveis).`}
               </p>
               {emitResult.errors && emitResult.errors.length > 0 && (
-                <ul className="mt-1 text-xs space-y-0.5 text-green-700">
+                <ul className="mt-2 text-xs space-y-1 text-green-700">
                   {emitResult.errors.map((e, i) => (
-                    <li key={i}>• Enrollment {e.enrollmentId}: {e.error}</li>
+                    <li key={i} className="bg-green-100 rounded px-2 py-1">Participante {e.enrollmentId}: {e.error}</li>
                   ))}
                 </ul>
               )}
@@ -567,28 +569,44 @@ export default function EventDetailPage() {
           )}
           {emitError && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 mb-2">
-              {emitError}
+              <p className="font-medium">Nao foi possivel emitir os certificados.</p>
+              <p className="text-xs mt-1 opacity-80">{emitError}</p>
             </div>
           )}
 
           {/* Email result */}
           {emailResult && (
             <div className={`border rounded-lg px-4 py-3 text-sm ${
-              emailResult.falhados > 0
-                ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
-                : 'bg-green-50 border-green-200 text-green-800'
+              emailResult.total === 0
+                ? 'bg-blue-50 border-blue-200 text-blue-800'
+                : emailResult.enviados === 0
+                  ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                  : emailResult.falhados > 0
+                    ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                    : 'bg-green-50 border-green-200 text-green-800'
             }`}>
               <p className="font-medium">
-                {emailResult.enviados} email{emailResult.enviados !== 1 ? 's' : ''} enviado{emailResult.enviados !== 1 ? 's' : ''}
-                {emailResult.falhados > 0 && `, ${emailResult.falhados} falhado${emailResult.falhados !== 1 ? 's' : ''}`}
-                {' '}(de {emailResult.total})
+                {emailResult.total === 0
+                  ? 'Todos os certificados deste evento ja foram enviados anteriormente.'
+                  : emailResult.enviados === emailResult.total
+                    ? `Envio concluido com sucesso. ${emailResult.enviados} email${emailResult.enviados !== 1 ? 's' : ''} entregue${emailResult.enviados !== 1 ? 's' : ''}.`
+                    : emailResult.enviados === 0
+                      ? `Nenhum email foi entregue. Verifique os detalhes abaixo.`
+                      : `Envio parcialmente concluido. ${emailResult.enviados} entregue${emailResult.enviados !== 1 ? 's' : ''}, ${emailResult.falhados} com falha.`
+                }
               </p>
+              {emailResult.total === 0 && (
+                <p className="text-xs mt-1 opacity-80">
+                  Para reenviar o certificado a um participante especifico, use o botao de reenvio na linha correspondente da tabela de participantes.
+                </p>
+              )}
               {emailResult.falhados_detalhe && emailResult.falhados_detalhe.length > 0 && (
                 <div className="mt-2 space-y-1">
+                  <p className="text-xs font-semibold mb-1">Participantes com falha no envio:</p>
                   {emailResult.falhados_detalhe.map((f, i) => (
                     <div key={i} className="text-xs bg-yellow-100 rounded px-2 py-1.5">
                       <span className="font-semibold">{f.nome}</span> — {f.email}
-                      <span className="block opacity-70 mt-0.5">Erro: {f.erro}</span>
+                      <span className="block opacity-70 mt-0.5">{friendlyEmailError(f.erro)}</span>
                     </div>
                   ))}
                 </div>
@@ -597,7 +615,8 @@ export default function EventDetailPage() {
           )}
           {emailError && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-              {emailError}
+              <p className="font-medium">Ocorreu um erro ao tentar enviar os emails.</p>
+              <p className="text-xs mt-1 opacity-80">{emailError}</p>
             </div>
           )}
         </div>
