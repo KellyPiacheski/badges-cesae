@@ -33,7 +33,8 @@ export async function generateMetadata({
     const title = `${data.participantName} concluiu ${data.eventTitle} | CESAE Digital`;
     const description = `${data.participantName} obteve o certificado de conclusão de "${data.eventTitle}", emitido pela CESAE Digital. Verifica a autenticidade aqui.`;
     const pageUrl = `${CLIENT_URL}/validate/${code}`;
-    const badgeUrl = resolveImageUrl(data.badgeUrl);
+    // Imagem OG gerada dinamicamente — badge centrado em 1200x630 para LinkedIn
+    const ogImageUrl = `${SERVER_URL}/api/certificates/og/${code}`;
 
     return {
       title,
@@ -43,21 +44,19 @@ export async function generateMetadata({
         description,
         url: pageUrl,
         siteName: "CESAE Digital",
-        images: badgeUrl
-          ? [{
-              url: badgeUrl,
-              width: 800,
-              height: 800,
-              alt: `Badge de ${data.eventTitle} — ${data.participantName}`,
-            }]
-          : [],
+        images: [{
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `Certificado de ${data.eventTitle} — ${data.participantName}`,
+        }],
         type: "website",
       },
       twitter: {
-        card: "summary",
+        card: "summary_large_image",
         title,
         description,
-        images: badgeUrl ? [badgeUrl] : [],
+        images: [ogImageUrl],
       },
     };
   } catch (_) {
