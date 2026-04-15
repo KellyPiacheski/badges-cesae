@@ -810,25 +810,31 @@ export default function EventDetailPage() {
                   {event.type === 'curso' && (
                     <>
                       <td className="px-6 py-3 text-center">
-                        <input
-                          type="number"
-                          min="0"
-                          max="20"
-                          step="0.1"
-                          defaultValue={enrollment.evaluation_score ?? ''}
-                          onBlur={(e) => {
-                            const val = e.target.value;
-                            if (val !== String(enrollment.evaluation_score ?? '')) {
-                              const result = val && parseFloat(val) >= 10 ? 'aprovado' : val ? 'reprovado' : '';
-                              handleEvaluation(enrollment.id, val, result);
-                            }
-                          }}
-                          className="w-16 text-center px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                          placeholder="—"
-                        />
+                        {enrollment.status === 'ausente' ? (
+                          <span className="text-xs text-gray-300">—</span>
+                        ) : (
+                          <input
+                            type="number"
+                            min="0"
+                            max="20"
+                            step="0.1"
+                            defaultValue={enrollment.evaluation_score ?? ''}
+                            onBlur={(e) => {
+                              const val = e.target.value;
+                              if (val !== String(enrollment.evaluation_score ?? '')) {
+                                const result = val && parseFloat(val) >= 10 ? 'aprovado' : val ? 'reprovado' : '';
+                                handleEvaluation(enrollment.id, val, result);
+                              }
+                            }}
+                            className="w-16 text-center px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                            placeholder="—"
+                          />
+                        )}
                       </td>
                       <td className="px-6 py-3 text-center">
-                        {enrollment.evaluation_result ? (
+                        {enrollment.status === 'ausente' ? (
+                          <span className="text-xs text-gray-300">—</span>
+                        ) : enrollment.evaluation_result ? (
                           <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${
                             enrollment.evaluation_result === 'aprovado'
                               ? 'bg-green-100 text-green-700'
