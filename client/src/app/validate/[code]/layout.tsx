@@ -54,7 +54,7 @@ export async function generateMetadata({
         type: "website",
       },
       twitter: {
-        card: "summary_large_image",
+        card: "summary",
         title,
         description,
         images: badgeUrl ? [badgeUrl] : [],
