@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+const SERVER_URL = API_URL.replace(/\/api$/, "");
+const CLIENT_URL = process.env.NEXT_PUBLIC_CLIENT_URL || "https://badges-cesae-tau.vercel.app";
+
+// Garante que o URL da imagem é sempre absoluto (necessário para LinkedIn OG)
+function resolveImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  return `${SERVER_URL}${url}`;
+}
 
 export async function generateMetadata({
   params,
@@ -21,9 +30,10 @@ export async function generateMetadata({
     }
 
     const data = await res.json();
-    const title = `${data.participantName} — ${data.eventTitle} | CESAE Digital`;
-    const description = `Certificado de conclusão de ${data.eventTitle}, emitido pela CESAE Digital.`;
-    const pageUrl = `${process.env.NEXT_PUBLIC_CLIENT_URL || "https://badges-cesae.vercel.app"}/validate/${code}`;
+    const title = `${data.participantName} concluiu ${data.eventTitle} | CESAE Digital`;
+    const description = `${data.participantName} obteve o certificado de conclusão de "${data.eventTitle}", emitido pela CESAE Digital. Verifica a autenticidade aqui.`;
+    const pageUrl = `${CLIENT_URL}/validate/${code}`;
+    const badgeUrl = resolveImageUrl(data.badgeUrl);
 
     return {
       title,
@@ -33,8 +43,13 @@ export async function generateMetadata({
         description,
         url: pageUrl,
         siteName: "CESAE Digital",
-        images: data.badgeUrl
-          ? [{ url: data.badgeUrl, width: 800, height: 800, alt: "Badge CESAE Digital" }]
+        images: badgeUrl
+          ? [{
+              url: badgeUrl,
+              width: 800,
+              height: 800,
+              alt: `Badge de ${data.eventTitle} — ${data.participantName}`,
+            }]
           : [],
         type: "website",
       },
@@ -42,7 +57,7 @@ export async function generateMetadata({
         card: "summary_large_image",
         title,
         description,
-        images: data.badgeUrl ? [data.badgeUrl] : [],
+        images: badgeUrl ? [badgeUrl] : [],
       },
     };
   } catch (_) {
