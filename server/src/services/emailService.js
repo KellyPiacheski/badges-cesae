@@ -1,27 +1,11 @@
 // server/src/services/emailService.js
-// Serviço de envio de emails com Nodemailer
+// Serviço de envio de emails com Resend
 
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const path = require("path");
 const fs = require("fs");
 
-// Cria um transporter novo por envio para evitar ligações perdidas (ECONNRESET/ESOCKET)
-function createTransporter() {
-  const port = parseInt(process.env.EMAIL_PORT || "587");
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || "smtp.gmail.com",
-    port,
-    secure: port === 465, // 465 → SSL, 587 → STARTTLS
-    family: 4, // forçar IPv4 — Railway bloqueia IPv6 para SMTP
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 30000,
-  });
-}
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Deriva o path local do badge a partir da image_url guardada na BD.
 // Retorna o path local se o ficheiro existir localmente.
@@ -44,33 +28,34 @@ function getBadgeLocalPath(imageUrl) {
 // Função base de envio — aceita destinatário, assunto, corpo HTML e anexos opcionais
 async function sendEmail({ to, subject, html, attachments = [] }) {
   try {
-    const info = await createTransporter().sendMail({
-      from: `"CESAE Digital" <${process.env.EMAIL_USER}>`,
+    const FROM = process.env.EMAIL_FROM || "CESAE Digital <noreply@badges-cesae.lol>";
+
+    // Converter attachments do formato nodemailer para o formato Resend
+    const resendAttachments = attachments
+      .filter(a => a.path && a.filename)
+      .map(a => ({
+        filename: a.filename,
+        content: fs.readFileSync(a.path),
+      }));
+
+    const { data, error } = await resend.emails.send({
+      from: FROM,
       to,
       subject,
       html,
-      attachments,
+      attachments: resendAttachments.length > 0 ? resendAttachments : undefined,
     });
 
-    console.log("Email enviado:", info.messageId);
-    return { success: true, messageId: info.messageId };
+    if (error) {
+      console.error("Erro ao enviar email (Resend):", error);
+      return { success: false, error: error.message };
+    }
+
+    console.log("Email enviado:", data.id);
+    return { success: true, messageId: data.id };
   } catch (error) {
-    console.error("Erro ao enviar email:", {
-      code: error.code,
-      command: error.command,
-      response: error.response,
-      responseCode: error.responseCode,
-      message: error.message,
-    });
-    return {
-      success: false,
-      error: error.message,
-      detail: {
-        code: error.code || null,
-        response: error.response || null,
-        responseCode: error.responseCode || null,
-      },
-    };
+    console.error("Erro ao enviar email:", error.message);
+    return { success: false, error: error.message };
   }
 }
 
