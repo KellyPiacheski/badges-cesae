@@ -220,42 +220,41 @@ async function sendCertificateEmail({
     ? (pdfUrl.startsWith("http") ? pdfUrl : `${SERVER_URL}${pdfUrl}`)
     : null;
 
-  // Tentar obter o badge como Buffer (local ou remoto)
-  let badgeBuffer = null;
-  let badgeFilename = null;
   const safeName = eventTitle.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
+  const badgeFilename = `badge-${safeName}.png`;
 
-  if (hasBadge) {
-    // Ficheiro local
+  // Usar URL pública do R2 diretamente no HTML — é a abordagem mais fiável para clientes de email
+  // Para ficheiros locais, converter para base64 (desenvolvimento)
+  let badgeImageSrc = null;
+  let badgeBuffer = null;
+
+  if (hasBadge && badgeLocalPath) {
+    // Desenvolvimento — ficheiro local → base64
     badgeBuffer = fs.readFileSync(badgeLocalPath);
-    badgeFilename = `badge-${safeName}.png`;
+    badgeImageSrc = `data:image/png;base64,${badgeBuffer.toString("base64")}`;
   } else if (badgeUrl && badgeUrl.startsWith("http")) {
-    // Badge remoto (R2) — descarregar para Buffer
+    // Produção — URL pública do R2 → usar diretamente no HTML
+    badgeImageSrc = badgeUrl;
+    // Descarregar para enviar também como anexo
     try {
       badgeBuffer = await downloadBuffer(badgeUrl);
-      badgeFilename = `badge-${safeName}.png`;
     } catch (err) {
-      console.error("Não foi possível descarregar o badge remoto:", err.message);
+      console.error("Nao foi possivel descarregar o badge para anexo:", err.message);
     }
   }
-
-  // Converter badge para base64 — embutido diretamente no HTML (não bloqueado por email clients)
-  const badgeBase64 = badgeBuffer
-    ? `data:image/png;base64,${badgeBuffer.toString("base64")}`
-    : null;
 
   const subject = `O teu certificado — ${eventTitle} | CESAE Digital`;
   const html = buildCertificateTemplate({
     participantName,
     eventTitle,
     validationCode,
-    badgeBase64,
+    badgeBase64: badgeImageSrc,
     pdfUrl: resolvedPdfUrl,
   });
 
   // Enviar badge também como anexo para o participante guardar
   const attachments = [];
-  if (badgeBuffer && badgeFilename) {
+  if (badgeBuffer) {
     attachments.push({
       filename: badgeFilename,
       content: badgeBuffer,
