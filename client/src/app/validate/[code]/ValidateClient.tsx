@@ -109,9 +109,30 @@ export default function ValidateClient({ code }: { code: string }) {
             )}
 
             {error && (
-              <div>
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">{error}</div>
-                <a href="/validate" className="block text-center text-purple-600 hover:text-purple-700 text-sm font-semibold">Tentar novamente</a>
+              <div className="text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Certificado não encontrado</h3>
+                <p className="text-sm text-gray-500 mb-2">
+                  O código <span className="font-mono font-semibold text-gray-700">{code}</span> não corresponde a nenhum certificado no sistema.
+                </p>
+                <p className="text-xs text-gray-400 mb-6">
+                  Verifica se o código está correto e tenta novamente.
+                </p>
+                <a
+                  href="/validate"
+                  className="inline-flex items-center gap-2 bg-blue-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  Tentar outro código
+                </a>
               </div>
             )}
 
