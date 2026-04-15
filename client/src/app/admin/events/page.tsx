@@ -27,6 +27,7 @@ export default function EventsListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -85,32 +86,61 @@ export default function EventsListPage() {
 
       {/* Filtros */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500">Filtrar por tipo:</span>
-          <button
-            onClick={() => setFilterType('')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filterType === '' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Todos
-          </button>
-          <button
-            onClick={() => setFilterType('evento')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filterType === 'evento' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Eventos
-          </button>
-          <button
-            onClick={() => setFilterType('curso')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              filterType === 'curso' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            Cursos
-          </button>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* Search */}
+          <div className="relative flex-1 w-full sm:max-w-xs">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+              fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+            >
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Pesquisar por nome..."
+              className="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label="Limpar pesquisa"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Type filter */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-sm text-gray-500">Tipo:</span>
+            <button
+              onClick={() => setFilterType('')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filterType === '' ? 'bg-blue-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setFilterType('evento')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filterType === 'evento' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Eventos
+            </button>
+            <button
+              onClick={() => setFilterType('curso')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                filterType === 'curso' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Cursos
+            </button>
+          </div>
         </div>
       </div>
 
@@ -122,6 +152,11 @@ export default function EventsListPage() {
       )}
 
       {/* Table */}
+      {(() => {
+        const filtered = events.filter(e =>
+          e.title.toLowerCase().includes(search.toLowerCase())
+        );
+        return (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-gray-400">A carregar...</div>
@@ -131,6 +166,13 @@ export default function EventsListPage() {
             <Link href="/admin/events/new" className="text-blue-600 hover:underline ml-1">
               Criar o primeiro?
             </Link>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-gray-400">
+            Nenhum resultado para <strong className="text-gray-600">"{search}"</strong>.{' '}
+            <button onClick={() => setSearch('')} className="text-blue-600 hover:underline">
+              Limpar pesquisa
+            </button>
           </div>
         ) : (
           <table className="w-full">
@@ -145,7 +187,7 @@ export default function EventsListPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {events.map((event) => (
+              {filtered.map((event) => (
                 <tr key={event.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <Link href={`/admin/events/${event.id}`} className="font-medium text-gray-900 hover:text-blue-600">
@@ -210,6 +252,8 @@ export default function EventsListPage() {
           </table>
         )}
       </div>
+        );
+      })()}
     </div>
   );
 }
