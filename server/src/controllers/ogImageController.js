@@ -39,7 +39,40 @@ async function getBadgeBuffer(imageUrl) {
   return null;
 }
 
-// GET /api/og/certificate/:code
+// Helper: desenha um retângulo com cantos arredondados
+function roundedRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// Helper: quebra texto em linhas que cabem dentro de maxWidth
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let current = "";
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+// GET /api/certificates/og/:code
 async function generateOgImage(req, res) {
   try {
     const { code } = req.params;
@@ -57,134 +90,171 @@ async function generateOgImage(req, res) {
       Badge.findOne({ where: { enrollment_id: enrollment.id } }),
     ]);
 
-    // Canvas 1200x630
     const W = 1200;
     const H = 630;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext("2d");
 
-    // Fundo gradiente escuro
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, "#0f172a");
-    grad.addColorStop(1, "#1e3a8a");
-    ctx.fillStyle = grad;
+    // ── Fundo ────────────────────────────────────────────────────────────────
+    const bgGrad = ctx.createLinearGradient(0, 0, W, H);
+    bgGrad.addColorStop(0, "#0c1a3a");
+    bgGrad.addColorStop(0.5, "#12275c");
+    bgGrad.addColorStop(1, "#1e1144");
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // Badge centrado à esquerda
-    const BADGE_SIZE = 420;
-    const BADGE_X = 80;
-    const BADGE_Y = (H - BADGE_SIZE) / 2;
+    // Barra de topo colorida
+    const barGrad = ctx.createLinearGradient(0, 0, W, 0);
+    barGrad.addColorStop(0, "#1e3a8a");
+    barGrad.addColorStop(0.5, "#7c3aed");
+    barGrad.addColorStop(1, "#ec4899");
+    ctx.fillStyle = barGrad;
+    ctx.fillRect(0, 0, W, 8);
+
+    // Barra de fundo (rodapé)
+    ctx.fillStyle = "rgba(255,255,255,0.04)";
+    ctx.fillRect(0, H - 60, W, 60);
+
+    // ── Badge (lado esquerdo) ─────────────────────────────────────────────────
+    const BADGE_SIZE = 440;
+    const BADGE_X = 70;
+    const BADGE_Y = (H - BADGE_SIZE) / 2 + 4; // ligeiramente abaixo da barra topo
+    const RADIUS = 36;
 
     const badgeBuffer = badge ? await getBadgeBuffer(badge.image_url) : null;
     if (badgeBuffer) {
       try {
         const badgeImg = await loadImage(badgeBuffer);
-        // Sombra
-        ctx.shadowColor = "rgba(0,0,0,0.5)";
-        ctx.shadowBlur = 40;
+
+        // Sombra: desenhar o mesmo rect com fill visível + shadow, ANTES do clip
+        ctx.save();
+        ctx.shadowColor = "rgba(0,0,0,0.7)";
+        ctx.shadowBlur = 50;
         ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 10;
-        // Badge com cantos arredondados
-        const RADIUS = 30;
-        ctx.beginPath();
-        ctx.moveTo(BADGE_X + RADIUS, BADGE_Y);
-        ctx.lineTo(BADGE_X + BADGE_SIZE - RADIUS, BADGE_Y);
-        ctx.quadraticCurveTo(BADGE_X + BADGE_SIZE, BADGE_Y, BADGE_X + BADGE_SIZE, BADGE_Y + RADIUS);
-        ctx.lineTo(BADGE_X + BADGE_SIZE, BADGE_Y + BADGE_SIZE - RADIUS);
-        ctx.quadraticCurveTo(BADGE_X + BADGE_SIZE, BADGE_Y + BADGE_SIZE, BADGE_X + BADGE_SIZE - RADIUS, BADGE_Y + BADGE_SIZE);
-        ctx.lineTo(BADGE_X + RADIUS, BADGE_Y + BADGE_SIZE);
-        ctx.quadraticCurveTo(BADGE_X, BADGE_Y + BADGE_SIZE, BADGE_X, BADGE_Y + BADGE_SIZE - RADIUS);
-        ctx.lineTo(BADGE_X, BADGE_Y + RADIUS);
-        ctx.quadraticCurveTo(BADGE_X, BADGE_Y, BADGE_X + RADIUS, BADGE_Y);
-        ctx.closePath();
+        ctx.shadowOffsetY = 16;
+        ctx.fillStyle = "#0c1a3a"; // mesma cor do fundo — invisível mas gera sombra
+        roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
+        ctx.fill();
+        ctx.restore();
+
+        // Badge recortado com cantos arredondados
+        ctx.save();
+        roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
         ctx.clip();
         ctx.drawImage(badgeImg, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE);
+        ctx.restore();
+
+        // Borda sutil à volta do badge
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.12)";
+        ctx.lineWidth = 2;
+        roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
+        ctx.stroke();
         ctx.restore();
       } catch (e) {
         console.error("Erro ao desenhar badge no OG:", e.message);
       }
+    } else {
+      // Placeholder quando não há badge
+      ctx.save();
+      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
+      ctx.fill();
+      ctx.restore();
     }
 
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
+    // ── Divisória vertical ───────────────────────────────────────────────────
+    const DIV_X = BADGE_X + BADGE_SIZE + 50;
+    const divGrad = ctx.createLinearGradient(0, 80, 0, H - 80);
+    divGrad.addColorStop(0, "rgba(255,255,255,0)");
+    divGrad.addColorStop(0.3, "rgba(255,255,255,0.15)");
+    divGrad.addColorStop(0.7, "rgba(255,255,255,0.15)");
+    divGrad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = divGrad;
+    ctx.fillRect(DIV_X, 80, 1, H - 160);
 
-    // Lado direito — texto
-    const TEXT_X = BADGE_X + BADGE_SIZE + 60;
+    // ── Texto (lado direito) ─────────────────────────────────────────────────
+    const TEXT_X = DIV_X + 50;
     const TEXT_W = W - TEXT_X - 60;
-    const TEXT_Y_START = 140;
+    let curY = 110;
 
-    // "CESAE Digital" — label pequeno
+    // "CESAE Digital" — label topo
     ctx.fillStyle = "#93c5fd";
-    ctx.font = "bold 28px Arial";
-    ctx.fillText("CESAE Digital", TEXT_X, TEXT_Y_START);
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillText("CESAE Digital", TEXT_X, curY);
+    curY += 8;
 
-    // Linha separadora
-    ctx.fillStyle = "#3b82f6";
-    ctx.fillRect(TEXT_X, TEXT_Y_START + 14, 60, 3);
+    // Acento colorido
+    const accentGrad = ctx.createLinearGradient(TEXT_X, 0, TEXT_X + 80, 0);
+    accentGrad.addColorStop(0, "#7c3aed");
+    accentGrad.addColorStop(1, "#ec4899");
+    ctx.fillStyle = accentGrad;
+    ctx.fillRect(TEXT_X, curY, 80, 3);
+    curY += 30;
+
+    // "concluiu com sucesso" — subtítulo pequeno acima do nome
+    ctx.fillStyle = "rgba(148,163,184,0.9)";
+    ctx.font = "22px sans-serif";
+    ctx.fillText("Certificado de conclusão de", TEXT_X, curY);
+    curY += 38;
+
+    // Nome do evento (destaque)
+    const eventTitle = event?.title || "";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 40px sans-serif";
+    const eventLines = wrapText(ctx, eventTitle, TEXT_W);
+    for (const l of eventLines) {
+      ctx.fillText(l, TEXT_X, curY);
+      curY += 50;
+    }
+    curY += 10;
+
+    // Separador fino
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    ctx.fillRect(TEXT_X, curY, TEXT_W, 1);
+    curY += 28;
+
+    // "atribuído a"
+    ctx.fillStyle = "rgba(148,163,184,0.8)";
+    ctx.font = "20px sans-serif";
+    ctx.fillText("atribuído a", TEXT_X, curY);
+    curY += 34;
 
     // Nome do participante
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 52px Arial";
     const name = participant?.name || "";
-    // Quebrar nome se for muito longo
-    const words = name.split(" ");
-    let line = "";
-    let nameY = TEXT_Y_START + 70;
-    for (const word of words) {
-      const test = line ? `${line} ${word}` : word;
-      if (ctx.measureText(test).width > TEXT_W && line) {
-        ctx.fillText(line, TEXT_X, nameY);
-        nameY += 60;
-        line = word;
-      } else {
-        line = test;
-      }
-    }
-    if (line) {
-      ctx.fillText(line, TEXT_X, nameY);
-      nameY += 60;
-    }
-
-    // "concluiu com sucesso"
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "28px Arial";
-    ctx.fillText("concluiu com sucesso", TEXT_X, nameY + 10);
-
-    // Nome do evento
     ctx.fillStyle = "#e2e8f0";
-    ctx.font = "bold 34px Arial";
-    const eventTitle = event?.title || "";
-    const eventWords = eventTitle.split(" ");
-    let eLine = "";
-    let eY = nameY + 58;
-    for (const word of eventWords) {
-      const test = eLine ? `${eLine} ${word}` : word;
-      if (ctx.measureText(test).width > TEXT_W && eLine) {
-        ctx.fillText(eLine, TEXT_X, eY);
-        eY += 42;
-        eLine = word;
-      } else {
-        eLine = test;
-      }
-    }
-    if (eLine) {
-      ctx.fillText(eLine, TEXT_X, eY);
-      eY += 42;
+    ctx.font = "bold 46px sans-serif";
+    const nameLines = wrapText(ctx, name, TEXT_W);
+    for (const l of nameLines) {
+      ctx.fillText(l, TEXT_X, curY);
+      curY += 56;
     }
 
-    // "Certificado verificado"
-    const PILL_Y = H - 100;
-    ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
-    ctx.beginPath();
-    ctx.roundRect(TEXT_X, PILL_Y, 260, 44, 22);
+    // ── Pill "Certificado verificado" (rodapé direito) ───────────────────────
+    const PILL_H = 40;
+    const PILL_Y = H - 50 - PILL_H / 2;
+    const PILL_TEXT = "✓  Certificado verificado";
+
+    ctx.font = "bold 20px sans-serif";
+    const pillW = ctx.measureText(PILL_TEXT).width + 36;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(124,58,237,0.35)";
+    roundedRect(ctx, TEXT_X, PILL_Y, pillW, PILL_H, PILL_H / 2);
     ctx.fill();
-    ctx.fillStyle = "#60a5fa";
-    ctx.font = "bold 22px Arial";
-    ctx.fillText("Certificado verificado", TEXT_X + 16, PILL_Y + 29);
+    ctx.strokeStyle = "rgba(167,139,250,0.5)";
+    ctx.lineWidth = 1.5;
+    roundedRect(ctx, TEXT_X, PILL_Y, pillW, PILL_H, PILL_H / 2);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = "#a78bfa";
+    ctx.font = "bold 20px sans-serif";
+    ctx.fillText(PILL_TEXT, TEXT_X + 18, PILL_Y + PILL_H / 2 + 7);
 
     // Retornar imagem PNG
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=86400"); // cache 24h
+    res.setHeader("Cache-Control", "public, max-age=3600"); // cache 1h
     canvas.createPNGStream().pipe(res);
 
   } catch (err) {
