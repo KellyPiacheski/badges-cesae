@@ -5,10 +5,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 export async function generateMetadata({
   params,
 }: {
-  params: { code: string };
+  params: Promise<{ code: string }>;
 }): Promise<Metadata> {
   try {
-    const res = await fetch(`${API_URL}/certificates/validate/${params.code}`, {
+    const { code } = await params;
+    const res = await fetch(`${API_URL}/certificates/validate/${code}`, {
       cache: "no-store",
     });
 
@@ -22,7 +23,7 @@ export async function generateMetadata({
     const data = await res.json();
     const title = `${data.participantName} — ${data.eventTitle} | CESAE Digital`;
     const description = `Certificado de conclusão de ${data.eventTitle}, emitido pela CESAE Digital.`;
-    const pageUrl = `${process.env.NEXT_PUBLIC_CLIENT_URL || "https://badges-cesae.vercel.app"}/validate/${params.code}`;
+    const pageUrl = `${process.env.NEXT_PUBLIC_CLIENT_URL || "https://badges-cesae.vercel.app"}/validate/${code}`;
 
     return {
       title,
@@ -44,7 +45,7 @@ export async function generateMetadata({
         images: data.badgeUrl ? [data.badgeUrl] : [],
       },
     };
-  } catch {
+  } catch (_) {
     return {
       title: "Certificado CESAE Digital",
       description: "Verifica a autenticidade do teu certificado CESAE Digital.",
