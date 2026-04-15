@@ -1,5 +1,5 @@
 // server/src/controllers/ogImageController.js
-// Gera imagem Open Graph 1200x630 com o badge centrado para partilha no LinkedIn
+// Gera imagem Open Graph 1200x630 para partilha no LinkedIn
 
 const { createCanvas, loadImage } = require("canvas");
 const https = require("https");
@@ -39,7 +39,29 @@ async function getBadgeBuffer(imageUrl) {
   return null;
 }
 
-// Helper: desenha um retângulo com cantos arredondados
+// Desenha texto com quebra de linha automática; devolve o Y final
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(" ");
+  let line = "";
+  let currentY = y;
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, currentY);
+      currentY += lineHeight;
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) {
+    ctx.fillText(line, x, currentY);
+    currentY += lineHeight;
+  }
+  return currentY;
+}
+
+// Rounded rect path helper
 function roundedRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -54,30 +76,12 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// Helper: quebra texto em linhas que cabem dentro de maxWidth
-function wrapText(ctx, text, maxWidth) {
-  const words = text.split(" ");
-  const lines = [];
-  let current = "";
-  for (const word of words) {
-    const test = current ? `${current} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = test;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
 // GET /api/certificates/og/:code
 async function generateOgImage(req, res) {
   try {
     const { code } = req.params;
+    console.log("[OG] a gerar imagem para:", code);
 
-    // Buscar certificado e dados associados
     const certificate = await Certificate.findOne({ where: { validation_code: code } });
     if (!certificate) return res.status(404).send("Not found");
 
@@ -90,175 +94,161 @@ async function generateOgImage(req, res) {
       Badge.findOne({ where: { enrollment_id: enrollment.id } }),
     ]);
 
+    console.log("[OG] participante:", participant?.name, "| evento:", event?.title, "| badge url:", badge?.image_url);
+
     const W = 1200;
     const H = 630;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext("2d");
 
-    // ── Fundo ────────────────────────────────────────────────────────────────
+    // ── FUNDO ────────────────────────────────────────────────────────────────
     const bgGrad = ctx.createLinearGradient(0, 0, W, H);
-    bgGrad.addColorStop(0, "#0c1a3a");
-    bgGrad.addColorStop(0.5, "#12275c");
-    bgGrad.addColorStop(1, "#1e1144");
+    bgGrad.addColorStop(0, "#0c1833");
+    bgGrad.addColorStop(1, "#1a0a3d");
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // Barra de topo colorida
-    const barGrad = ctx.createLinearGradient(0, 0, W, 0);
-    barGrad.addColorStop(0, "#1e3a8a");
-    barGrad.addColorStop(0.5, "#7c3aed");
-    barGrad.addColorStop(1, "#ec4899");
-    ctx.fillStyle = barGrad;
-    ctx.fillRect(0, 0, W, 8);
+    // Barra de topo
+    const topGrad = ctx.createLinearGradient(0, 0, W, 0);
+    topGrad.addColorStop(0, "#1e3a8a");
+    topGrad.addColorStop(0.5, "#7c3aed");
+    topGrad.addColorStop(1, "#ec4899");
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(0, 0, W, 10);
 
-    // Barra de fundo (rodapé)
-    ctx.fillStyle = "rgba(255,255,255,0.04)";
-    ctx.fillRect(0, H - 60, W, 60);
-
-    // ── Badge (lado esquerdo) ─────────────────────────────────────────────────
+    // ── BADGE (esquerda) ─────────────────────────────────────────────────────
     const BADGE_SIZE = 440;
-    const BADGE_X = 70;
-    const BADGE_Y = (H - BADGE_SIZE) / 2 + 4; // ligeiramente abaixo da barra topo
-    const RADIUS = 36;
+    const BADGE_X = 80;
+    const BADGE_Y = (H - BADGE_SIZE) / 2 + 5;
+    const RADIUS = 32;
 
     const badgeBuffer = badge ? await getBadgeBuffer(badge.image_url) : null;
     if (badgeBuffer) {
       try {
         const badgeImg = await loadImage(badgeBuffer);
+        console.log("[OG] badge carregado com sucesso");
 
-        // Sombra: desenhar o mesmo rect com fill visível + shadow, ANTES do clip
+        // Sombra: rect preenchido com shadow antes do clip
         ctx.save();
         ctx.shadowColor = "rgba(0,0,0,0.7)";
         ctx.shadowBlur = 50;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 16;
-        ctx.fillStyle = "#0c1a3a"; // mesma cor do fundo — invisível mas gera sombra
+        ctx.shadowOffsetY = 14;
+        ctx.fillStyle = "#111827";
         roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
         ctx.fill();
         ctx.restore();
 
-        // Badge recortado com cantos arredondados
+        // Clip + imagem
         ctx.save();
         roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
         ctx.clip();
         ctx.drawImage(badgeImg, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE);
         ctx.restore();
 
-        // Borda sutil à volta do badge
+        // Borda
         ctx.save();
-        ctx.strokeStyle = "rgba(255,255,255,0.12)";
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
         ctx.lineWidth = 2;
         roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
         ctx.stroke();
         ctx.restore();
       } catch (e) {
-        console.error("Erro ao desenhar badge no OG:", e.message);
+        console.error("[OG] Erro ao desenhar badge:", e.message);
       }
     } else {
-      // Placeholder quando não há badge
+      console.warn("[OG] sem badge buffer");
+      // Placeholder
       ctx.save();
-      ctx.fillStyle = "rgba(255,255,255,0.06)";
+      ctx.fillStyle = "rgba(255,255,255,0.05)";
       roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
       ctx.fill();
       ctx.restore();
     }
 
-    // ── Divisória vertical ───────────────────────────────────────────────────
-    const DIV_X = BADGE_X + BADGE_SIZE + 50;
-    const divGrad = ctx.createLinearGradient(0, 80, 0, H - 80);
-    divGrad.addColorStop(0, "rgba(255,255,255,0)");
-    divGrad.addColorStop(0.3, "rgba(255,255,255,0.15)");
-    divGrad.addColorStop(0.7, "rgba(255,255,255,0.15)");
-    divGrad.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = divGrad;
-    ctx.fillRect(DIV_X, 80, 1, H - 160);
+    // ── SEPARADOR VERTICAL ────────────────────────────────────────────────────
+    const SEP_X = BADGE_X + BADGE_SIZE + 50; // 570
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(SEP_X, 60, 1, H - 120);
 
-    // ── Texto (lado direito) ─────────────────────────────────────────────────
-    const TEXT_X = DIV_X + 50;
-    const TEXT_W = W - TEXT_X - 60;
-    let curY = 110;
+    // ── TEXTO (direita) ──────────────────────────────────────────────────────
+    const TX = SEP_X + 55; // 625
+    const TW = W - TX - 50; // 525
+    let TY = 105;
 
-    // "CESAE Digital" — label topo
+    // Label "CESAE Digital"
     ctx.fillStyle = "#93c5fd";
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillText("CESAE Digital", TEXT_X, curY);
-    curY += 8;
+    ctx.font = "bold 26px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("CESAE Digital", TX, TY);
+    TY += 8;
 
     // Acento colorido
-    const accentGrad = ctx.createLinearGradient(TEXT_X, 0, TEXT_X + 80, 0);
-    accentGrad.addColorStop(0, "#7c3aed");
-    accentGrad.addColorStop(1, "#ec4899");
-    ctx.fillStyle = accentGrad;
-    ctx.fillRect(TEXT_X, curY, 80, 3);
-    curY += 30;
+    const acGrad = ctx.createLinearGradient(TX, 0, TX + 90, 0);
+    acGrad.addColorStop(0, "#7c3aed");
+    acGrad.addColorStop(1, "#ec4899");
+    ctx.fillStyle = acGrad;
+    ctx.fillRect(TX, TY, 90, 3);
+    TY += 32;
 
-    // "concluiu com sucesso" — subtítulo pequeno acima do nome
-    ctx.fillStyle = "rgba(148,163,184,0.9)";
-    ctx.font = "22px sans-serif";
-    ctx.fillText("Certificado de conclusão de", TEXT_X, curY);
-    curY += 38;
+    // Sub-label
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "22px Arial";
+    ctx.fillText("Certificado de conclusao de", TX, TY);
+    TY += 46;
 
-    // Nome do evento (destaque)
-    const eventTitle = event?.title || "";
+    // Nome do evento
+    const eventTitle = event?.title || "Evento";
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 40px sans-serif";
-    const eventLines = wrapText(ctx, eventTitle, TEXT_W);
-    for (const l of eventLines) {
-      ctx.fillText(l, TEXT_X, curY);
-      curY += 50;
-    }
-    curY += 10;
+    ctx.font = "bold 42px Arial";
+    TY = drawWrappedText(ctx, eventTitle, TX, TY, TW, 52);
+    TY += 16;
 
     // Separador fino
     ctx.fillStyle = "rgba(255,255,255,0.1)";
-    ctx.fillRect(TEXT_X, curY, TEXT_W, 1);
-    curY += 28;
+    ctx.fillRect(TX, TY, TW, 1);
+    TY += 26;
 
     // "atribuído a"
-    ctx.fillStyle = "rgba(148,163,184,0.8)";
-    ctx.font = "20px sans-serif";
-    ctx.fillText("atribuído a", TEXT_X, curY);
-    curY += 34;
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "20px Arial";
+    ctx.fillText("atribuido a", TX, TY);
+    TY += 38;
 
     // Nome do participante
     const name = participant?.name || "";
     ctx.fillStyle = "#e2e8f0";
-    ctx.font = "bold 46px sans-serif";
-    const nameLines = wrapText(ctx, name, TEXT_W);
-    for (const l of nameLines) {
-      ctx.fillText(l, TEXT_X, curY);
-      curY += 56;
-    }
+    ctx.font = "bold 44px Arial";
+    TY = drawWrappedText(ctx, name, TX, TY, TW, 54);
 
-    // ── Pill "Certificado verificado" (rodapé direito) ───────────────────────
-    const PILL_H = 40;
-    const PILL_Y = H - 50 - PILL_H / 2;
-    const PILL_TEXT = "✓  Certificado verificado";
-
-    ctx.font = "bold 20px sans-serif";
-    const pillW = ctx.measureText(PILL_TEXT).width + 36;
+    // ── PILL "Certificado verificado" ─────────────────────────────────────────
+    const PILL_Y = H - 68;
+    const PILL_LABEL = "Certificado verificado";
+    ctx.font = "bold 20px Arial";
+    const pillW = ctx.measureText(PILL_LABEL).width + 40;
 
     ctx.save();
-    ctx.fillStyle = "rgba(124,58,237,0.35)";
-    roundedRect(ctx, TEXT_X, PILL_Y, pillW, PILL_H, PILL_H / 2);
+    ctx.fillStyle = "rgba(124,58,237,0.3)";
+    roundedRect(ctx, TX, PILL_Y, pillW, 38, 19);
     ctx.fill();
-    ctx.strokeStyle = "rgba(167,139,250,0.5)";
+    ctx.strokeStyle = "rgba(167,139,250,0.6)";
     ctx.lineWidth = 1.5;
-    roundedRect(ctx, TEXT_X, PILL_Y, pillW, PILL_H, PILL_H / 2);
+    roundedRect(ctx, TX, PILL_Y, pillW, 38, 19);
     ctx.stroke();
     ctx.restore();
 
-    ctx.fillStyle = "#a78bfa";
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillText(PILL_TEXT, TEXT_X + 18, PILL_Y + PILL_H / 2 + 7);
+    ctx.fillStyle = "#c4b5fd";
+    ctx.font = "bold 20px Arial";
+    ctx.fillText(PILL_LABEL, TX + 20, PILL_Y + 26);
 
-    // Retornar imagem PNG
+    console.log("[OG] canvas gerado, a enviar PNG");
+
+    // Retornar PNG
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=3600"); // cache 1h
+    res.setHeader("Cache-Control", "public, max-age=3600");
     canvas.createPNGStream().pipe(res);
 
   } catch (err) {
-    console.error("Erro ao gerar OG image:", err);
+    console.error("[OG] Erro:", err);
     res.status(500).send("Erro ao gerar imagem");
   }
 }
