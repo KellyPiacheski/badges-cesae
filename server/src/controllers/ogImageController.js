@@ -8,6 +8,10 @@ const path = require("path");
 const fs = require("fs");
 const { Certificate, Enrollment, Participant, Event, Badge } = require("../models");
 
+// Cache em memória: evita regenerar a imagem em cada pedido
+// Chave: validation_code  |  Valor: Buffer PNG
+const ogCache = new Map();
+
 function downloadBuffer(url) {
   return new Promise((resolve, reject) => {
     const client = url.startsWith("https") ? https : http;
@@ -43,6 +47,14 @@ async function getBadgeBuffer(imageUrl) {
 async function generateOgImage(req, res) {
   try {
     const { code } = req.params;
+
+    // ── SERVIR DO CACHE SE DISPONÍVEL ─────────────────────────────────────────
+    if (ogCache.has(code)) {
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("X-Cache", "HIT");
+      return res.end(ogCache.get(code));
+    }
 
     const certificate = await Certificate.findOne({ where: { validation_code: code } });
     if (!certificate) return res.status(404).send("Not found");
@@ -188,10 +200,18 @@ async function generateOgImage(req, res) {
     ctx.font = "bold 19px Arial";
     ctx.fillText("Certificado verificado", TX + 18, PILL_Y + 25);
 
-    // ── ENVIAR PNG ────────────────────────────────────────────────────────────
+    // ── GUARDAR NO CACHE E ENVIAR PNG ─────────────────────────────────────────
+    const pngBuffer = canvas.toBuffer("image/png");
+    ogCache.set(code, pngBuffer);            // guarda para pedidos futuros
+    // Limitar cache a 500 entradas para evitar uso excessivo de memória
+    if (ogCache.size > 500) {
+      const firstKey = ogCache.keys().next().value;
+      ogCache.delete(firstKey);
+    }
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    canvas.createPNGStream().pipe(res);
+    res.setHeader("Cache-Control", "public, max-age=86400"); // 24h
+    res.setHeader("X-Cache", "MISS");
+    res.end(pngBuffer);
 
   } catch (err) {
     console.error("[OG] ERRO:", err.message);

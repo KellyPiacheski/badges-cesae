@@ -150,6 +150,13 @@ async function createCertificate(req, res) {
       return res.status(500).json({ error: result.error || "Erro ao gerar certificado" });
     }
 
+    // 7. Pré-aquecer a imagem OG em background (não bloqueia a resposta)
+    // Garante que o LinkedIn recebe a imagem rapidamente na primeira partilha
+    const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 3001}`;
+    const ogUrl = `${serverUrl}/api/certificates/og/${validationCode}`;
+    const httpModule = ogUrl.startsWith("https") ? require("https") : require("http");
+    httpModule.get(ogUrl, (r) => r.resume()).on("error", () => {});
+
     return res.status(201).json({
       message: "Certificado e badge emitidos com sucesso",
       certificate,
