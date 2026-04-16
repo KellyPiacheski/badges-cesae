@@ -61,8 +61,9 @@ async function drawLucasBadge(eventTitle, template = {}) {
   ctx.clip();
 
   // ── LOGO CESAE (topo esquerda) ──
-  const LOGO_PATH = path.join(__dirname, "../../../client/public/cesae-logo.svg");
-  const logoAlt = path.join(__dirname, "../../public/cesae-logo.svg");
+  // Logo copiado para server/src/assets/ para garantir disponibilidade em produção
+  const LOGO_PATH = path.join(__dirname, "../assets/cesae-logo.svg");
+  const logoAlt = path.join(__dirname, "../../../client/public/cesae-logo.svg");
   const logoPath = fs.existsSync(LOGO_PATH) ? LOGO_PATH : fs.existsSync(logoAlt) ? logoAlt : null;
 
   if (logoPath) {
