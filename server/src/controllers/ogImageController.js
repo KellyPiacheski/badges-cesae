@@ -34,53 +34,16 @@ async function getBadgeBuffer(imageUrl) {
       return fs.readFileSync(localPath);
     }
   } catch (err) {
-    console.error("Erro ao carregar badge para OG:", err.message);
+    console.error("[OG] Erro ao carregar badge:", err.message);
   }
   return null;
-}
-
-// Desenha texto com quebra de linha automática; devolve o Y final
-function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = text.split(" ");
-  let line = "";
-  let currentY = y;
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      ctx.fillText(line, x, currentY);
-      currentY += lineHeight;
-      line = word;
-    } else {
-      line = test;
-    }
-  }
-  if (line) {
-    ctx.fillText(line, x, currentY);
-    currentY += lineHeight;
-  }
-  return currentY;
-}
-
-// Rounded rect path helper
-function roundedRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
 }
 
 // GET /api/certificates/og/:code
 async function generateOgImage(req, res) {
   try {
     const { code } = req.params;
-    console.log("[OG] a gerar imagem para:", code);
+    console.log("[OG] inicio para:", code);
 
     const certificate = await Certificate.findOne({ where: { validation_code: code } });
     if (!certificate) return res.status(404).send("Not found");
@@ -94,162 +57,75 @@ async function generateOgImage(req, res) {
       Badge.findOne({ where: { enrollment_id: enrollment.id } }),
     ]);
 
-    console.log("[OG] participante:", participant?.name, "| evento:", event?.title, "| badge url:", badge?.image_url);
+    const name = participant?.name || "Participante";
+    const eventTitle = event?.title || "Evento";
+    console.log("[OG] dados: nome=", name, "evento=", eventTitle);
 
     const W = 1200;
     const H = 630;
     const canvas = createCanvas(W, H);
     const ctx = canvas.getContext("2d");
 
-    // ── FUNDO ────────────────────────────────────────────────────────────────
-    const bgGrad = ctx.createLinearGradient(0, 0, W, H);
-    bgGrad.addColorStop(0, "#0c1833");
-    bgGrad.addColorStop(1, "#1a0a3d");
-    ctx.fillStyle = bgGrad;
+    // 1. FUNDO ESCURO
+    ctx.fillStyle = "#0f172a";
     ctx.fillRect(0, 0, W, H);
+    console.log("[OG] fundo ok");
 
-    // Barra de topo
-    const topGrad = ctx.createLinearGradient(0, 0, W, 0);
-    topGrad.addColorStop(0, "#1e3a8a");
-    topGrad.addColorStop(0.5, "#7c3aed");
-    topGrad.addColorStop(1, "#ec4899");
-    ctx.fillStyle = topGrad;
+    // 2. BARRA TOPO
+    ctx.fillStyle = "#7c3aed";
     ctx.fillRect(0, 0, W, 10);
 
-    // ── BADGE (esquerda) ─────────────────────────────────────────────────────
-    const BADGE_SIZE = 440;
-    const BADGE_X = 80;
-    const BADGE_Y = (H - BADGE_SIZE) / 2 + 5;
-    const RADIUS = 32;
+    // 3. BADGE (esquerda, sem clip - só drawImage)
+    const BADGE_SIZE = 420;
+    const BADGE_X = 60;
+    const BADGE_Y = (H - BADGE_SIZE) / 2;
 
     const badgeBuffer = badge ? await getBadgeBuffer(badge.image_url) : null;
     if (badgeBuffer) {
       try {
         const badgeImg = await loadImage(badgeBuffer);
-        console.log("[OG] badge carregado com sucesso");
-
-        // Sombra: rect preenchido com shadow antes do clip
-        ctx.save();
-        ctx.shadowColor = "rgba(0,0,0,0.7)";
-        ctx.shadowBlur = 50;
-        ctx.shadowOffsetY = 14;
-        ctx.fillStyle = "#111827";
-        roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
-        ctx.fill();
-        ctx.restore();
-
-        // Clip + imagem
-        ctx.save();
-        roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
-        ctx.clip();
         ctx.drawImage(badgeImg, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE);
-        ctx.restore();
-
-        // Borda
-        ctx.save();
-        ctx.strokeStyle = "rgba(255,255,255,0.15)";
-        ctx.lineWidth = 2;
-        roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
-        ctx.stroke();
-        ctx.restore();
+        console.log("[OG] badge desenhado ok");
       } catch (e) {
-        console.error("[OG] Erro ao desenhar badge:", e.message);
+        console.error("[OG] erro drawImage:", e.message);
       }
-    } else {
-      console.warn("[OG] sem badge buffer");
-      // Placeholder
-      ctx.save();
-      ctx.fillStyle = "rgba(255,255,255,0.05)";
-      roundedRect(ctx, BADGE_X, BADGE_Y, BADGE_SIZE, BADGE_SIZE, RADIUS);
-      ctx.fill();
-      ctx.restore();
     }
 
-    // ── SEPARADOR VERTICAL ────────────────────────────────────────────────────
-    const SEP_X = BADGE_X + BADGE_SIZE + 50; // 570
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.fillRect(SEP_X, 60, 1, H - 120);
+    // 4. RECT DE DIAGNÓSTICO — deve aparecer em laranja no lado direito
+    ctx.fillStyle = "#f97316";
+    ctx.fillRect(540, 50, 600, 8);
+    console.log("[OG] rect diagnostico ok");
 
-    // ── TEXTO (direita) ──────────────────────────────────────────────────────
-    const TX = SEP_X + 55; // 625
-    const TW = W - TX - 50; // 525
-    let TY = 105;
-
-    // Label "CESAE Digital"
-    ctx.fillStyle = "#93c5fd";
-    ctx.font = "bold 26px Arial";
-    ctx.textAlign = "left";
-    ctx.fillText("CESAE Digital", TX, TY);
-    TY += 8;
-
-    // Acento colorido
-    const acGrad = ctx.createLinearGradient(TX, 0, TX + 90, 0);
-    acGrad.addColorStop(0, "#7c3aed");
-    acGrad.addColorStop(1, "#ec4899");
-    ctx.fillStyle = acGrad;
-    ctx.fillRect(TX, TY, 90, 3);
-    TY += 32;
-
-    // Sub-label
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "22px Arial";
-    ctx.fillText("Certificado de conclusao de", TX, TY);
-    TY += 46;
-
-    // Nome do evento
-    const eventTitle = event?.title || "Evento";
+    // 5. TEXTO SIMPLES
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 42px Arial";
-    TY = drawWrappedText(ctx, eventTitle, TX, TY, TW, 52);
-    TY += 16;
+    ctx.font = "bold 48px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("CESAE Digital", 560, 130);
+    console.log("[OG] texto CESAE ok");
 
-    // Separador fino
-    ctx.fillStyle = "rgba(255,255,255,0.1)";
-    ctx.fillRect(TX, TY, TW, 1);
-    TY += 26;
+    ctx.fillStyle = "#93c5fd";
+    ctx.font = "bold 38px Arial";
+    ctx.fillText(eventTitle, 560, 200);
+    console.log("[OG] texto evento ok");
 
-    // "atribuído a"
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "20px Arial";
-    ctx.fillText("atribuido a", TX, TY);
-    TY += 38;
-
-    // Nome do participante
-    const name = participant?.name || "";
     ctx.fillStyle = "#e2e8f0";
-    ctx.font = "bold 44px Arial";
-    TY = drawWrappedText(ctx, name, TX, TY, TW, 54);
+    ctx.font = "28px Arial";
+    ctx.fillText(name, 560, 270);
+    console.log("[OG] texto nome ok");
 
-    // ── PILL "Certificado verificado" ─────────────────────────────────────────
-    const PILL_Y = H - 68;
-    const PILL_LABEL = "Certificado verificado";
-    ctx.font = "bold 20px Arial";
-    const pillW = ctx.measureText(PILL_LABEL).width + 40;
+    ctx.fillStyle = "#a78bfa";
+    ctx.font = "bold 22px Arial";
+    ctx.fillText("Certificado verificado", 560, H - 60);
 
-    ctx.save();
-    ctx.fillStyle = "rgba(124,58,237,0.3)";
-    roundedRect(ctx, TX, PILL_Y, pillW, 38, 19);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(167,139,250,0.6)";
-    ctx.lineWidth = 1.5;
-    roundedRect(ctx, TX, PILL_Y, pillW, 38, 19);
-    ctx.stroke();
-    ctx.restore();
+    console.log("[OG] a enviar PNG");
 
-    ctx.fillStyle = "#c4b5fd";
-    ctx.font = "bold 20px Arial";
-    ctx.fillText(PILL_LABEL, TX + 20, PILL_Y + 26);
-
-    console.log("[OG] canvas gerado, a enviar PNG");
-
-    // Retornar PNG
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "no-cache");
     canvas.createPNGStream().pipe(res);
 
   } catch (err) {
-    console.error("[OG] Erro:", err);
-    res.status(500).send("Erro ao gerar imagem");
+    console.error("[OG] ERRO GERAL:", err.message, err.stack);
+    res.status(500).send("Erro: " + err.message);
   }
 }
 
