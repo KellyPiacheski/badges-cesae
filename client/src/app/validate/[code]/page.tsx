@@ -10,12 +10,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
   const SERVER_URL = API_URL.replace(/\/api$/, "");
-  const SITE_URL =
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const CLIENT_URL =
+    process.env.NEXT_PUBLIC_CLIENT_URL || "https://badges-cesae-tau.vercel.app";
 
   try {
     const res = await fetch(`${API_URL}/certificates/validate/${code}`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
 
     if (!res.ok) {
@@ -27,16 +27,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     const cert = await res.json();
 
-    const badgeUrl = cert.badgeUrl
-      ? cert.badgeUrl.startsWith("http")
-        ? cert.badgeUrl
-        : `${SERVER_URL}${cert.badgeUrl}`
-      : null;
+    const pageUrl = `${CLIENT_URL}/validate/${code}`;
+    // Imagem OG 1200x630 gerada dinamicamente no Railway
+    const ogImageUrl = `${SERVER_URL}/api/certificates/og/${code}?v=3`;
 
-    const pageUrl = `${SITE_URL}/validate/${code}`;
-
-    const title = `Certificado — ${cert.eventTitle}`;
-    const description = `${cert.participantName} concluiu "${cert.eventTitle}" pela CESAE Digital. Clica para verificar o certificado.`;
+    const title = `${cert.participantName} concluiu ${cert.eventTitle} | CESAE Digital`;
+    const description = `${cert.participantName} obteve o certificado de conclusão de "${cert.eventTitle}", emitido pela CESAE Digital. Verifica a autenticidade aqui.`;
 
     return {
       title,
@@ -47,22 +43,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title,
         description,
         siteName: "CESAE Digital",
-        ...(badgeUrl && {
-          images: [
-            {
-              url: badgeUrl,
-              width: 400,
-              height: 400,
-              alt: `Badge de ${cert.eventTitle}`,
-            },
-          ],
-        }),
+        images: [
+          {
+            url: ogImageUrl,
+            width: 1200,
+            height: 630,
+            alt: `Certificado de ${cert.eventTitle} — ${cert.participantName}`,
+          },
+        ],
       },
       twitter: {
-        card: badgeUrl ? "summary_large_image" : "summary",
+        card: "summary_large_image",
         title,
         description,
-        ...(badgeUrl && { images: [badgeUrl] }),
+        images: [ogImageUrl],
       },
     };
   } catch {
