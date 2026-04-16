@@ -169,42 +169,38 @@ async function resendEmail(req, res) {
     const event = await Event.findByPk(enrollment.event_id);
     const participant = enrollment.participant;
 
-    // Garantir que o badge existe — gerar se estiver em falta ou ficheiro não existir
+    // Regenerar sempre o badge para garantir que está atualizado com o template/logo atual
     let badgeUrl = enrollment.badge ? enrollment.badge.image_url : null;
-    const badgeFileMissing = badgeUrl && badgeUrl.includes("/uploads/badges/") &&
-      !fs.existsSync(path.join(__dirname, "../../uploads/badges", path.basename(badgeUrl)));
+    try {
+      const templateId = event.template_id;
+      const template = templateId
+        ? await BadgeTemplate.findByPk(templateId)
+        : await BadgeTemplate.findOne({ where: { is_default: true } });
 
-    if (!enrollment.badge || badgeFileMissing) {
-      try {
-        const templateId = event.template_id;
-        const template = templateId
-          ? await BadgeTemplate.findByPk(templateId)
-          : await BadgeTemplate.findOne({ where: { is_default: true } });
+      const badgeResult = await generateBadge({
+        participantName: participant.name,
+        eventTitle: event.title,
+        eventType: event.type,
+        date: new Date(event.start_date).toLocaleDateString("pt-PT"),
+        durationHours: event.duration_hours,
+        validationCode: certificate.validation_code,
+        template: template?.design_config || {},
+      });
 
-        const badgeResult = await generateBadge({
-          participantName: participant.name,
-          eventTitle: event.title,
-          eventType: event.type,
-          date: new Date(event.start_date).toLocaleDateString("pt-PT"),
-          durationHours: event.duration_hours,
-          validationCode: certificate.validation_code,
-          template: template?.design_config || {},
+      if (enrollment.badge) {
+        await enrollment.badge.update({ image_url: badgeResult.url, issued_at: new Date() });
+      } else {
+        await Badge.create({
+          enrollment_id: enrollmentId,
+          image_url: badgeResult.url,
+          template_id: template?.id || null,
+          issued_at: new Date(),
         });
-
-        if (enrollment.badge) {
-          await enrollment.badge.update({ image_url: badgeResult.url, issued_at: new Date() });
-        } else {
-          await Badge.create({
-            enrollment_id: enrollmentId,
-            image_url: badgeResult.url,
-            template_id: template?.id || null,
-            issued_at: new Date(),
-          });
-        }
-        badgeUrl = badgeResult.url;
-      } catch (badgeErr) {
-        console.error("Erro ao gerar badge no reenvio:", badgeErr.message);
       }
+      badgeUrl = badgeResult.url;
+    } catch (badgeErr) {
+      console.error("Erro ao regenerar badge no reenvio:", badgeErr.message);
+      // Mantém o badge antigo se falhar
     }
 
     // Resetar email_sent para permitir reenvio
