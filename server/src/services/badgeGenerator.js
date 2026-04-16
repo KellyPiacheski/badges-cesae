@@ -9,10 +9,18 @@ const fs = require("fs");
 const { uploadToR2, isR2Configured } = require("./r2");
 
 // Converte SVG em Buffer PNG usando @resvg/resvg-js (não requer librsvg no sistema)
-async function svgToPngBuffer(svgPath, width = 200) {
+// white=true substitui todas as cores por branco (para usar sobre fundos escuros)
+async function svgToPngBuffer(svgPath, width = 200, white = false) {
   try {
     const { Resvg } = require("@resvg/resvg-js");
-    const svgData = fs.readFileSync(svgPath, "utf8");
+    let svgData = fs.readFileSync(svgPath, "utf8");
+    if (white) {
+      // Substituir todas as cores de fill e stroke por branco
+      svgData = svgData
+        .replace(/fill="#[0-9A-Fa-f]{3,8}"/g, 'fill="#FFFFFF"')
+        .replace(/stop-color="#[0-9A-Fa-f]{3,8}"/g, 'stop-color="#FFFFFF"')
+        .replace(/stroke="#[0-9A-Fa-f]{3,8}"/g, 'stroke="#FFFFFF"');
+    }
     const resvg = new Resvg(svgData, { fitTo: { mode: "width", value: width } });
     return Buffer.from(resvg.render().asPng());
   } catch (err) {
@@ -81,7 +89,7 @@ async function drawLucasBadge(eventTitle, template = {}) {
 
   if (logoSvgPath) {
     try {
-      const logoPng = await svgToPngBuffer(logoSvgPath, 180);
+      const logoPng = await svgToPngBuffer(logoSvgPath, 180, true); // branco sobre fundo escuro
       if (logoPng) {
         const logo = await loadImage(logoPng);
         const logoH = 44;
@@ -118,22 +126,30 @@ async function drawLucasBadge(eventTitle, template = {}) {
   // ── GLOBO (centro) ──
   const CX = SIZE / 2;
   const CY = 310;
-  const R = 140;
+  const R = 150;
 
-  ctx.strokeStyle = globeColor;
-  ctx.lineWidth = 4;
+  // Cor do globo: branca semi-transparente para contrastar com o fundo colorido
+  const gc = "rgba(255,255,255,0.35)";
+  ctx.strokeStyle = gc;
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = "round";
 
   // Círculo exterior
   ctx.beginPath();
   ctx.arc(CX, CY, R, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Elipse vertical (meridiano)
+  // Meridiano vertical central
   ctx.beginPath();
-  ctx.ellipse(CX, CY, R * 0.42, R, 0, 0, Math.PI * 2);
+  ctx.ellipse(CX, CY, R * 0.38, R, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Linha equador
+  // Meridiano ligeiramente à direita
+  ctx.beginPath();
+  ctx.ellipse(CX, CY, R * 0.75, R, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Equador
   ctx.beginPath();
   ctx.moveTo(CX - R, CY);
   ctx.lineTo(CX + R, CY);
@@ -141,12 +157,12 @@ async function drawLucasBadge(eventTitle, template = {}) {
 
   // Paralelo superior
   ctx.beginPath();
-  ctx.ellipse(CX, CY - R * 0.42, R * 0.91, R * 0.28, 0, 0, Math.PI * 2);
+  ctx.ellipse(CX, CY - R * 0.45, R * 0.89, R * 0.27, 0, 0, Math.PI * 2);
   ctx.stroke();
 
   // Paralelo inferior
   ctx.beginPath();
-  ctx.ellipse(CX, CY + R * 0.42, R * 0.91, R * 0.28, 0, 0, Math.PI * 2);
+  ctx.ellipse(CX, CY + R * 0.45, R * 0.89, R * 0.27, 0, 0, Math.PI * 2);
   ctx.stroke();
 
   // ── TÍTULO DO EVENTO (fundo) ──
