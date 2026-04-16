@@ -140,7 +140,7 @@ async function generateOgImage(req, res) {
     // "Certificado de conclusão de"
     ctx.fillStyle = "#94a3b8";
     ctx.font = "22px Arial";
-    ctx.fillText("Certificado de conclusao de", TX, TY);
+    ctx.fillText("Certificado de conclus\u00e3o de", TX, TY);
     TY += 48;
 
     // Nome do evento
@@ -157,7 +157,7 @@ async function generateOgImage(req, res) {
     // "atribuído a"
     ctx.fillStyle = "#64748b";
     ctx.font = "20px Arial";
-    ctx.fillText("atribuido a", TX, TY);
+    ctx.fillText("atribu\u00eddo a", TX, TY);
     TY += 36;
 
     // Nome do participante
