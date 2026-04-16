@@ -39,25 +39,6 @@ async function getBadgeBuffer(imageUrl) {
   return null;
 }
 
-// Desenha texto com quebra de linha; devolve o Y final
-function fillWrapped(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = text.split(" ");
-  let line = "";
-  let curY = y;
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      ctx.fillText(line, x, curY);
-      curY += lineHeight;
-      line = word;
-    } else {
-      line = test;
-    }
-  }
-  if (line) { ctx.fillText(line, x, curY); curY += lineHeight; }
-  return curY;
-}
-
 // GET /api/certificates/og/:code
 async function generateOgImage(req, res) {
   try {
@@ -75,8 +56,8 @@ async function generateOgImage(req, res) {
       Badge.findOne({ where: { enrollment_id: enrollment.id } }),
     ]);
 
-    const name = participant?.name || "Participante";
-    const eventTitle = event?.title || "Evento";
+    const name       = participant?.name  || "Participante";
+    const eventTitle = event?.title       || "Evento";
 
     const W = 1200;
     const H = 630;
@@ -98,10 +79,14 @@ async function generateOgImage(req, res) {
     ctx.fillStyle = bar;
     ctx.fillRect(0, 0, W, 10);
 
-    // ── BADGE (esquerda) ─────────────────────────────────────────────────────
-    const BADGE_SIZE = 420;
-    const BADGE_X = 60;
-    const BADGE_Y = (H - BADGE_SIZE) / 2;
+    // ── LAYOUT: badge centrado, texto à direita ───────────────────────────────
+    // Zona esquerda: metade esquerda (600px) para badge centrado
+    // Zona direita:  metade direita (600px) para texto
+
+    // BADGE — centrado na metade esquerda
+    const BADGE_SIZE = 380;
+    const BADGE_X = (600 - BADGE_SIZE) / 2;       // 110
+    const BADGE_Y = (H - BADGE_SIZE) / 2;           // 125
 
     const badgeBuffer = badge ? await getBadgeBuffer(badge.image_url) : null;
     if (badgeBuffer) {
@@ -113,74 +98,95 @@ async function generateOgImage(req, res) {
       }
     }
 
-    // ── SEPARADOR VERTICAL ───────────────────────────────────────────────────
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.fillRect(BADGE_X + BADGE_SIZE + 40, 60, 1, H - 120);
+    // Separador vertical no centro (x=600)
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    ctx.fillRect(600, 50, 1, H - 100);
 
-    // ── TEXTO (direita) ──────────────────────────────────────────────────────
-    const TX = BADGE_X + BADGE_SIZE + 70; // 590
-    const TW = W - TX - 50;               // 560
-    let TY = 95;
+    // ── TEXTO (metade direita) ────────────────────────────────────────────────
+    const TX = 640;
+    const TW = 510; // espaço disponível até ao fim (640 + 510 = 1150, deixa 50px margem)
+    let TY = 100;
 
-    // Label "CESAE Digital"
+    // "CESAE Digital"
     ctx.fillStyle = "#93c5fd";
-    ctx.font = "bold 28px Arial";
+    ctx.font = "bold 26px Arial";
     ctx.textAlign = "left";
     ctx.fillText("CESAE Digital", TX, TY);
-    TY += 10;
+    TY += 8;
 
-    // Linha acento
+    // Barra acento azul→rosa
     const accent = ctx.createLinearGradient(TX, 0, TX + 100, 0);
     accent.addColorStop(0, "#7c3aed");
     accent.addColorStop(1, "#ec4899");
     ctx.fillStyle = accent;
     ctx.fillRect(TX, TY, 100, 3);
-    TY += 36;
+    TY += 34;
 
     // "Certificado de conclusão de"
     ctx.fillStyle = "#94a3b8";
-    ctx.font = "22px Arial";
+    ctx.font = "21px Arial";
     ctx.fillText("Certificado de conclus\u00e3o de", TX, TY);
     TY += 48;
 
-    // Nome do evento
+    // Nome do evento (com quebra de linha)
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 44px Arial";
-    TY = fillWrapped(ctx, eventTitle, TX, TY, TW, 54);
-    TY += 14;
+    ctx.font = "bold 42px Arial";
+    const eventWords = eventTitle.split(" ");
+    let eLine = "";
+    for (const word of eventWords) {
+      const test = eLine ? `${eLine} ${word}` : word;
+      if (ctx.measureText(test).width > TW && eLine) {
+        ctx.fillText(eLine, TX, TY);
+        TY += 50;
+        eLine = word;
+      } else { eLine = test; }
+    }
+    if (eLine) { ctx.fillText(eLine, TX, TY); TY += 50; }
+    TY += 10;
 
-    // Separador fino
-    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    // Linha divisória
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
     ctx.fillRect(TX, TY, TW * 0.8, 1);
-    TY += 28;
+    TY += 26;
 
     // "atribuído a"
     ctx.fillStyle = "#64748b";
-    ctx.font = "20px Arial";
+    ctx.font = "19px Arial";
     ctx.fillText("atribu\u00eddo a", TX, TY);
-    TY += 36;
+    TY += 34;
 
     // Nome do participante
     ctx.fillStyle = "#e2e8f0";
-    ctx.font = "bold 36px Arial";
-    TY = fillWrapped(ctx, name, TX, TY, TW, 44);
+    ctx.font = "bold 34px Arial";
+    const nameWords = name.split(" ");
+    let nLine = "";
+    for (const word of nameWords) {
+      const test = nLine ? `${nLine} ${word}` : word;
+      if (ctx.measureText(test).width > TW && nLine) {
+        ctx.fillText(nLine, TX, TY);
+        TY += 42;
+        nLine = word;
+      } else { nLine = test; }
+    }
+    if (nLine) { ctx.fillText(nLine, TX, TY); TY += 42; }
 
     // ── PILL "Certificado verificado" ─────────────────────────────────────────
-    const PILL_Y = H - 66;
+    const PILL_Y = H - 64;
+
     ctx.fillStyle = "rgba(124,58,237,0.25)";
     ctx.beginPath();
-    ctx.roundRect(TX, PILL_Y, 270, 38, 19);
+    ctx.roundRect(TX, PILL_Y, 268, 36, 18);
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(167,139,250,0.5)";
+    ctx.strokeStyle = "rgba(167,139,250,0.45)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect(TX, PILL_Y, 270, 38, 19);
+    ctx.roundRect(TX, PILL_Y, 268, 36, 18);
     ctx.stroke();
 
     ctx.fillStyle = "#a78bfa";
-    ctx.font = "bold 20px Arial";
-    ctx.fillText("Certificado verificado", TX + 18, PILL_Y + 26);
+    ctx.font = "bold 19px Arial";
+    ctx.fillText("Certificado verificado", TX + 18, PILL_Y + 25);
 
     // ── ENVIAR PNG ────────────────────────────────────────────────────────────
     res.setHeader("Content-Type", "image/png");
