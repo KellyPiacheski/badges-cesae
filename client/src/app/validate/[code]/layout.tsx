@@ -34,7 +34,7 @@ export async function generateMetadata({
     const description = `${data.participantName} obteve o certificado de conclusão de "${data.eventTitle}", emitido pela CESAE Digital. Verifica a autenticidade aqui.`;
     const pageUrl = `${CLIENT_URL}/validate/${code}`;
     // Imagem OG gerada dinamicamente — badge centrado em 1200x630 para LinkedIn
-    const ogImageUrl = `${SERVER_URL}/api/certificates/og/${code}`;
+    const ogImageUrl = `${SERVER_URL}/api/certificates/og/${code}?v=3`;
 
     return {
       title,
