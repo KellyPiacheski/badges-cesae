@@ -15,11 +15,15 @@ async function svgToPngBuffer(svgPath, width = 200, white = false) {
     const { Resvg } = require("@resvg/resvg-js");
     let svgData = fs.readFileSync(svgPath, "utf8");
     if (white) {
-      // Substituir todas as cores de fill e stroke por branco
+      // Substituir todas as cores por branco, preservando fill="none"
+      // Cobre: fill="#xxx", fill="url(...)", stop-color, stroke
       svgData = svgData
-        .replace(/fill="#[0-9A-Fa-f]{3,8}"/g, 'fill="#FFFFFF"')
-        .replace(/stop-color="#[0-9A-Fa-f]{3,8}"/g, 'stop-color="#FFFFFF"')
-        .replace(/stroke="#[0-9A-Fa-f]{3,8}"/g, 'stroke="#FFFFFF"');
+        .replace(/fill="(?!none")[^"]+"/g, 'fill="#FFFFFF"')
+        .replace(/stop-color="[^"]+"/g, 'stop-color="#FFFFFF"')
+        .replace(/stroke="(?!none")[^"]+"/g, 'stroke="#FFFFFF"')
+        // Remover gradients — já substituídos por branco sólido
+        .replace(/<linearGradient[\s\S]*?<\/linearGradient>/g, "")
+        .replace(/<defs>\s*<\/defs>/g, "");
     }
     const resvg = new Resvg(svgData, { fitTo: { mode: "width", value: width } });
     return Buffer.from(resvg.render().asPng());
