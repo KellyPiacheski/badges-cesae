@@ -8,6 +8,19 @@ const path = require("path");
 const fs = require("fs");
 const { uploadToR2, isR2Configured } = require("./r2");
 
+// Converte SVG em Buffer PNG usando @resvg/resvg-js (não requer librsvg no sistema)
+async function svgToPngBuffer(svgPath, width = 200) {
+  try {
+    const { Resvg } = require("@resvg/resvg-js");
+    const svgData = fs.readFileSync(svgPath, "utf8");
+    const resvg = new Resvg(svgData, { fitTo: { mode: "width", value: width } });
+    return Buffer.from(resvg.render().asPng());
+  } catch (err) {
+    console.warn("resvg-js não disponível, SVG não carregado:", err.message);
+    return null;
+  }
+}
+
 // Garantir que a pasta de output existe
 const BADGES_DIR = path.join(__dirname, "../..", "uploads", "badges");
 if (!fs.existsSync(BADGES_DIR)) {
@@ -61,28 +74,31 @@ async function drawLucasBadge(eventTitle, template = {}) {
   ctx.clip();
 
   // ── LOGO CESAE (topo esquerda) ──
-  // Logo copiado para server/src/assets/ para garantir disponibilidade em produção
-  const LOGO_PATH = path.join(__dirname, "../assets/cesae-logo.svg");
-  const logoAlt = path.join(__dirname, "../../../client/public/cesae-logo.svg");
-  const logoPath = fs.existsSync(LOGO_PATH) ? LOGO_PATH : fs.existsSync(logoAlt) ? logoAlt : null;
+  // Converte SVG → PNG via resvg-js (funciona no Railway sem librsvg)
+  const LOGO_SVG = path.join(__dirname, "../assets/cesae-logo.svg");
+  const logoSvgPath = fs.existsSync(LOGO_SVG) ? LOGO_SVG : null;
+  let logoLoaded = false;
 
-  if (logoPath) {
+  if (logoSvgPath) {
     try {
-      const logo = await loadImage(logoPath);
-      const logoH = 50;
-      const logoW = (logo.width / logo.height) * logoH;
-      ctx.drawImage(logo, 30, 28, logoW, logoH);
-    } catch {
-      ctx.fillStyle = textColor;
-      ctx.font = "bold 20px Arial";
-      ctx.textAlign = "left";
-      ctx.fillText("cesae digital", 30, 60);
+      const logoPng = await svgToPngBuffer(logoSvgPath, 180);
+      if (logoPng) {
+        const logo = await loadImage(logoPng);
+        const logoH = 44;
+        const logoW = (logo.width / logo.height) * logoH;
+        ctx.drawImage(logo, 24, 26, logoW, logoH);
+        logoLoaded = true;
+      }
+    } catch (err) {
+      console.warn("Erro ao carregar logo SVG:", err.message);
     }
-  } else {
+  }
+
+  if (!logoLoaded) {
     ctx.fillStyle = textColor;
-    ctx.font = "bold 20px Arial";
+    ctx.font = "bold 18px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("cesae digital", 30, 60);
+    ctx.fillText("CESAE Digital", 24, 56);
   }
 
   // ── "VERIFICADO" (topo direita) ──
